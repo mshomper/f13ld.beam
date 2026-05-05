@@ -1,0 +1,3302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cubic Beam Lattice Library</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{min-height:100%;background:#06080f;color:#e0e0ff;font-family:system-ui,sans-serif}
+#container{display:flex;flex-direction:column;height:100vh;max-width:1400px;margin:0 auto;width:100%}
+#cw{position:relative;background:#06080f;border-radius:12px 12px 0 0;overflow:hidden;border:0.5px solid #2a2a3a;flex:1;min-height:0;margin:16px 14px 0}
+canvas{display:block;width:100%;height:100%}
+#status{position:absolute;bottom:10px;left:10px;background:rgba(6,8,15,0.85);padding:5px 10px;border-radius:6px;font-size:11px;color:#555;pointer-events:none;border:0.5px solid #2a2a3a}
+#indicators{position:absolute;top:10px;left:10px;display:flex;gap:8px;flex-direction:column;pointer-events:none}
+#qualityOverlay{position:absolute;bottom:10px;right:10px;display:flex;gap:4px;z-index:10}
+#qualityOverlay button{background:rgba(6,8,15,0.85);color:#555;border:0.5px solid #2a2a3a;border-radius:5px;font-size:10px;padding:3px 7px;cursor:pointer;transition:color 0.15s,border-color 0.15s}
+#qualityOverlay button.active{color:#22d3ee;border-color:#22d3ee}
+.ind-pill{display:flex;align-items:center;gap:5px;background:rgba(6,8,15,0.85);padding:4px 8px;border-radius:6px;font-size:10px;border:0.5px solid #2a2a3a;white-space:nowrap}
+.ind-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.ind-label{color:#555;text-transform:uppercase;letter-spacing:0.06em}
+#panel{background:#111118;border:0.5px solid #2a2a3a;border-top:none;border-radius:0 0 12px 12px;padding:12px 14px;overflow-y:auto;max-height:52vh;margin:0 14px 14px}
+h1{font-size:13px;font-weight:500;color:#7c8aaa;letter-spacing:0.08em;text-transform:uppercase;margin:14px 14px 10px;flex-shrink:0}
+hr.divider{border:none;border-top:0.5px solid #2a2a3a;margin:10px 0}
+.sec-lbl{font-size:10px;color:#18f370;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:5px}
+.sc-group{display:flex;align-items:center;gap:6px;margin-bottom:22px}
+.sc-group label{font-size:12px;color:#888;white-space:nowrap;min-width:84px}
+.sc-group input[type=range]{flex:1;accent-color:#22d3ee;height:5px;background:#1a1a2e;border-radius:3px;outline:none;-webkit-appearance:none;appearance:none}
+.sc-group input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:26px;height:26px;background:#0e1a2e;border:2.5px solid #22d3ee;border-radius:50%;cursor:pointer;box-shadow:0 0 6px rgba(34,211,238,0.35)}
+.sc-group input[type=range]::-moz-range-thumb{width:26px;height:26px;background:#0e1a2e;border:2.5px solid #22d3ee;border-radius:50%;cursor:pointer;box-shadow:0 0 6px rgba(34,211,238,0.35)}
+.sc-group .sv{font-size:12px;font-weight:500;color:#e0e0ff;min-width:40px;font-variant-numeric:tabular-nums;text-align:right}
+.mode-strip{display:flex;gap:4px}
+.mode-btn{font-size:11px;padding:3px 10px;border:0.5px solid #3a3a5a;border-radius:20px;background:transparent;color:#888;cursor:pointer}
+.mode-btn.active{background:#7c6ff7;color:#fff;border-color:#7c6ff7}
+/* Edit-mode buttons (Add/Remove): brighter cyan-tinted border so they're visually distinct
+   from snap-density buttons when placed on the same row. Active state uses cyan fill. */
+.mode-btn.edit-btn{border:1px solid #22d3ee;color:#22d3ee;background:rgba(34,211,238,0.05)}
+.mode-btn.edit-btn.active{background:#22d3ee;color:#06080f;border-color:#22d3ee}
+/* Remove variant: same edit-btn shape, but red to signal a destructive action. */
+.mode-btn.edit-btn.edit-btn-remove{border-color:#ff6b9a;color:#ff6b9a;background:rgba(255,107,154,0.05)}
+.mode-btn.edit-btn.edit-btn-remove.active{background:#ff6b9a;color:#06080f;border-color:#ff6b9a}
+select{font-size:12px;padding:3px 6px;background:#1a1a2e;border:0.5px solid #3a3a5a;border-radius:5px;color:#e0e0ff;cursor:pointer;width:100%}
+.surf-controls{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;margin-bottom:8px}
+.export-row{display:flex;gap:6px;width:100%;margin-top:6px}
+.export-btn{flex:1;font-size:11px;padding:5px 6px;border:0.5px solid #7c6ff7;border-radius:20px;background:rgba(124,111,247,0.08);color:#a896ff;cursor:pointer;font-family:'Exo 2',system-ui,sans-serif;font-weight:500;white-space:nowrap}
+.metric-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px}
+.metric-tile{background:#0a0c14;border:0.5px solid #2a2a3a;border-radius:6px;padding:8px 10px}
+.metric-label{font-size:9px;color:#555;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:3px}
+.metric-value{font-size:14px;color:#22d3ee;font-variant-numeric:tabular-nums;font-weight:500}
+.metric-unit{font-size:10px;color:#666;margin-left:3px;font-weight:400}
+.topo-desc{font-size:11px;color:#7c8aaa;line-height:1.5;margin:6px 0 14px;padding:8px 10px;background:#0a0c14;border:0.5px solid #2a2a3a;border-radius:6px;border-left:2px solid #18f370}
+@import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@500;700&display=swap');
+.f13ld-header{display:flex;align-items:center;justify-content:space-between;background:#06080f;border-bottom:0.5px solid #1a2a1a;padding:0 14px;height:48px;flex-shrink:0;font-family:'Exo 2',system-ui,sans-serif;}
+.tab-bar{display:flex;background:#06080f;border-bottom:0.5px solid #1a2a1a;padding:0 14px;gap:4px;flex-shrink:0;align-items:flex-end;height:34px}
+.tab-pill{font-size:11px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;font-family:'Exo 2',system-ui,sans-serif;background:transparent;border:none;color:#555;padding:8px 14px 6px;cursor:pointer;border-radius:5px 5px 0 0;border-bottom:2px solid transparent;transition:color 0.15s,border-color 0.15s}
+.tab-pill:hover{color:#888}
+.tab-pill.active{color:#c8f542;border-bottom-color:#c8f542}
+.fh-left{display:flex;align-items:center;gap:10px}
+.fh-brand{display:flex;align-items:center;gap:8px;text-decoration:none}
+.fh-wordmark{font-size:17px;font-weight:700;letter-spacing:0.1em;line-height:1}
+.fh-divider{width:0.5px;height:24px;background:#1a2a1a}
+.fh-tool-name{font-size:15px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;line-height:1}
+.fh-right{display:flex;align-items:center;gap:10px}
+.fh-version{font-size:10px;color:#2a3a2a;letter-spacing:0.1em;font-family:'Exo 2',system-ui,sans-serif}
+.fh-icon{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.fh-mesh-btn{font-size:11px;padding:4px 12px;border:0.5px solid #1D9E75;border-radius:20px;background:rgba(29,158,117,0.08);color:#1D9E75;cursor:pointer;font-family:inherit;font-weight:600;white-space:nowrap;transition:background 0.15s}
+.fh-mesh-btn:hover{background:rgba(29,158,117,0.18)}
+#axisCanvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:12}
+/* Stiffness surface viz (TPMS-style) */
+.viz-row{display:grid;grid-template-columns:1fr 96px;gap:6px;margin-bottom:8px}
+/* 3-column layout: left tiles | center canvas | right tiles. Used in homogenization section. */
+.viz-row3{display:grid;grid-template-columns:96px minmax(160px, 1fr) 96px;gap:6px;margin-bottom:8px;align-items:stretch}
+.viz-card{background:#0a0c14;border:none;border-radius:8px;padding:8px;display:flex;flex-direction:column;align-items:stretch}
+.viz-title{font-size:9px;color:#555;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:5px}
+.stiff-canvas-wrap{position:relative;width:100%;flex:1;display:flex;align-items:center;justify-content:center;min-height:140px}
+.stiff-canvas{display:block;border-radius:6px;background:#0a0c14;width:auto;height:100%;max-width:100%;max-height:280px;aspect-ratio:1}
+/* Overlay shown when homogenization fails or cell is empty. Sits on top of the canvas. */
+.stiff-empty-overlay{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:14px;background:#0a0c14;border-radius:6px}
+.stiff-empty-overlay.show{display:flex}
+.stiff-empty-overlay .se-icon{font-size:22px;margin-bottom:8px;opacity:0.6}
+.stiff-empty-overlay .se-head{font-size:11px;color:#888;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px;font-weight:600}
+.stiff-empty-overlay .se-body{font-size:10px;color:#666;line-height:1.55;max-width:220px}
+.stiff-empty-overlay .se-body strong{color:#888;font-weight:500}
+.viz-tiles{display:flex;flex-direction:column;gap:4px}
+.metric-tile-mini{background:#0a0c14;border:0.5px solid #2a2a3a;border-radius:6px;padding:5px 8px;flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center}
+.metric-tile-mini .mv{font-size:13px;font-weight:500;font-variant-numeric:tabular-nums;line-height:1.1;color:#22d3ee}
+.metric-tile-mini .ml{font-size:9px;color:#555;letter-spacing:0.06em;text-transform:uppercase;margin-top:2px;line-height:1}
+.zener-row{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:11px;color:#777}
+.zener-val{font-size:14px;font-weight:500;color:#888;min-width:36px;font-variant-numeric:tabular-nums}
+.zener-label{font-size:11px;color:#555;flex:1;text-align:right}
+.zener-bar{position:relative;height:5px;background:#1a1a2a;border-radius:3px;margin:3px 0}
+.zener-bar-bg{position:absolute;left:0;top:0;bottom:0;width:100%;border-radius:3px;background:linear-gradient(90deg,#e879f9 0%,#555 40%,#555 60%,#22d3ee 100%);opacity:0.4}
+.zener-bar-tick{position:absolute;left:40%;top:-1px;width:1px;height:7px;background:#555;opacity:0.8}
+.zener-bar-marker{position:absolute;top:-2px;width:2px;height:9px;background:#e0e0ff;border-radius:1px;left:40%;transition:left 0.4s}
+.zener-axis{display:flex;justify-content:space-between;font-size:10px;color:#666;margin-top:1px}
+</style>
+</head>
+<body>
+<div id="container">
+  <div class="f13ld-header">
+  <div class="fh-left">
+    <a class="fh-brand" href="https://f13ld.app" target="_blank">
+      <svg width="24" height="24" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <defs><clipPath id="f13-clip"><path d="M50,5 C91,5 95,9 95,50 C95,91 91,95 50,95 C9,95 5,91 5,50 C5,9 9,5 50,5Z"/></clipPath></defs>
+        <path d="M50,5 C91,5 95,9 95,50 C95,91 91,95 50,95 C9,95 5,91 5,50 C5,9 9,5 50,5Z" fill="#111e13" stroke="#1D9E75" stroke-width="5"/>
+        <g clip-path="url(#f13-clip)" fill="none">
+          <path d="M0,50 Q25,40 50,50 Q75,60 100,50" stroke="#c8f542" stroke-width="6"/>
+          <path d="M50,0 Q40,25 50,50 Q60,75 50,100" stroke="#c8f542" stroke-width="6"/>
+          <path d="M0,31 Q25,21 50,31 Q75,41 100,31" stroke="#2c4e30" stroke-width="3"/>
+          <path d="M0,69 Q25,59 50,69 Q75,79 100,69" stroke="#2c4e30" stroke-width="3"/>
+          <path d="M31,0 Q21,25 31,50 Q41,75 31,100" stroke="#2c4e30" stroke-width="3"/>
+          <path d="M69,0 Q59,25 69,50 Q79,75 69,100" stroke="#2c4e30" stroke-width="3"/>
+          <circle cx="50" cy="50" r="7" fill="#c8f542"/>
+        </g>
+        <path d="M50,5 C91,5 95,9 95,50 C95,91 91,95 50,95 C9,95 5,91 5,50 C5,9 9,5 50,5Z" fill="none" stroke="#1D9E75" stroke-width="5"/>
+      </svg>
+      <div class="fh-wordmark"><span style="color:#1D9E75">F</span><span style="color:#c8f542">1</span><span style="color:#c8f542">3</span><span style="color:#1D9E75">LD</span></div>
+    </a>
+    <div class="fh-divider"></div>
+    <div class="fh-tool-name" style="color:#c8f542">BEAM</div>
+  </div>
+  <div class="fh-right">
+    <button class="fh-mesh-btn" onclick="openInMesh()">⬡ Open in F13LD.mesh</button>
+    <span class="fh-version">v0.2.1</span>
+    <div class="fh-icon" style="background:#0a1a14">
+      <svg width="20" height="20" viewBox="0 0 40 40" fill="none">
+        <!-- Stylized beam-cluster glyph: octet-ish cluster -->
+        <line x1="6"  y1="20" x2="34" y2="20" stroke="#c8f542" stroke-width="1.6" stroke-linecap="round"/>
+        <line x1="20" y1="6"  x2="20" y2="34" stroke="#c8f542" stroke-width="1.6" stroke-linecap="round"/>
+        <line x1="9"  y1="9"  x2="31" y2="31" stroke="#1D9E75" stroke-width="1.4" stroke-linecap="round"/>
+        <line x1="31" y1="9"  x2="9"  y2="31" stroke="#1D9E75" stroke-width="1.4" stroke-linecap="round"/>
+        <circle cx="20" cy="20" r="2.4" fill="#c8f542"/>
+      </svg>
+    </div>
+  </div>
+</div>
+  <div class="tab-bar">
+    <button class="tab-pill active" id="tabLibrary" onclick="switchTab('library')">Library</button>
+    <button class="tab-pill" id="tabBuilder" onclick="switchTab('builder')">Builder</button>
+  </div>
+  <div id="cw">
+    <canvas id="glCanvas"></canvas>
+    <canvas id="axisCanvas"></canvas>
+    <div id="status">Initializing…</div>
+    <div id="indicators">
+      <div class="ind-pill"><div class="ind-dot" id="dotShader" style="background:#22d3ee"></div><span class="ind-label">shader</span><span id="labelShader" style="color:#22d3ee;font-size:10px">ready</span></div>
+    </div>
+    <div id="qualityOverlay">
+      <button id="btnQLow"  onclick="onQualityChange('low')">Low</button>
+      <button id="btnQMed"  class="active" onclick="onQualityChange('medium')">Med</button>
+      <button id="btnQHigh" onclick="onQualityChange('high')">High</button>
+      <button id="btnQUltra" onclick="onQualityChange('ultra')">Ultra</button>
+    </div>
+  </div>
+  <div id="panel">
+
+    <div id="libraryPanel">
+    <div class="sec-lbl">topology</div>
+    <div style="margin-bottom:8px">
+      <select id="topology" onchange="onTopologyChange()">
+        <optgroup label="Foundational">
+          <option value="simple_cubic">Simple Cubic</option>
+          <option value="bcc">BCC</option>
+          <option value="fcc">FCC</option>
+          <option value="diamond">Diamond</option>
+          <option value="tetrahedron">Tetrahedron</option>
+        </optgroup>
+        <optgroup label="Truss family">
+          <option value="octahedron">Octahedron</option>
+          <option value="octet" selected>Octet Truss</option>
+          <option value="octet_z">Octet-Z</option>
+          <option value="cuboctahedron">Cuboctahedron</option>
+        </optgroup>
+        <optgroup label="Reinforced hybrids">
+          <option value="bcc_z">BCC-Z</option>
+          <option value="fcc_z">FCC-Z</option>
+          <option value="bcc_edges">BCC + Edges</option>
+          <option value="fcc_edges">FCC + Edges</option>
+          <option value="oct_edges">Octahedron + Edges</option>
+          <option value="f2bcc">F2BCC (FCC + BCC)</option>
+          <option value="f2bcc_z">F2BCC-Z</option>
+        </optgroup>
+        <optgroup label="Polyhedral cells">
+          <option value="kelvin">Kelvin (Truncated Octahedron)</option>
+          <option value="rhombic_dodec">Rhombic Dodecahedron</option>
+        </optgroup>
+        <optgroup label="Novel">
+          <option value="reentrant">3D Re-Entrant (Auxetic)</option>
+          <option value="tesseract">Tesseract</option>
+          <option value="truncated_cube">Truncated Cube</option>
+          <option value="cartesian_cross">Cartesian Cross</option>
+        </optgroup>
+      </select>
+    </div>
+    <div id="topoDesc" class="topo-desc"></div>
+    <button id="editCellBtn" onclick="onEditCell()" style="font-size:13px;padding:9px 14px;border:1px solid #c8f542;border-radius:8px;background:rgba(200,245,66,0.12);color:#c8f542;cursor:pointer;font-family:'Exo 2',system-ui,sans-serif;font-weight:700;letter-spacing:0.04em;width:100%;margin-bottom:10px;margin-top:4px;transition:background 0.15s,box-shadow 0.15s" onmouseover="this.style.background='rgba(200,245,66,0.20)';this.style.boxShadow='0 0 12px rgba(200,245,66,0.25)'" onmouseout="this.style.background='rgba(200,245,66,0.12)';this.style.boxShadow='none'">✎  Edit this cell in Builder  →</button>
+
+    <hr class="divider">
+    <div class="sec-lbl">geometry</div>
+    <div class="sc-group"><label>radius</label><input type="range" id="radius" min="0.02" max="0.30" step="0.005" value="0.10" oninput="onParamChange(this,'radiusValue')"><span class="sv" id="radiusValue">0.100</span></div>
+    <div class="sc-group"><label>cell size</label><input type="range" id="cell" min="0.5" max="3.0" step="0.05" value="1.5" oninput="onParamChange(this,'cellValue')"><span class="sv" id="cellValue">1.50</span></div>
+    <div class="sc-group" style="margin-bottom:8px">
+      <label>tiling</label>
+      <div class="mode-strip">
+        <button class="mode-btn active" id="btnTile1" onclick="onTileChange(1)">1&sup3;</button>
+        <button class="mode-btn" id="btnTile2" onclick="onTileChange(2)">2&sup3;</button>
+        <button class="mode-btn" id="btnTile3" onclick="onTileChange(3)">3&sup3;</button>
+      </div>
+    </div>
+    <div style="font-size:10px;color:#555;margin-top:-4px;margin-bottom:14px;line-height:1.5">radius is in cell-local units (fraction of half-cell). beam diameter = 2 &middot; radius &middot; cell.</div>
+
+    <hr class="divider">
+    <div class="sec-lbl">homogenization</div>
+    <div class="sc-group" style="margin-bottom:6px"><label>parent E<sub>s</sub></label><input type="number" id="matE" value="113000" step="1000" min="100" max="2000000" oninput="onMatChange()" style="width:78px;font-size:11px;padding:3px 6px;background:#1a1a2e;border:0.5px solid #3a3a5a;border-radius:4px;color:#e0e0ff;font-family:inherit"><span class="sv" style="font-size:10px">MPa</span></div>
+    <div class="sc-group" style="margin-bottom:8px"><label>parent ν<sub>s</sub></label><input type="number" id="matNu" value="0.34" step="0.01" min="-0.99" max="0.49" oninput="onMatChange()" style="width:78px;font-size:11px;padding:3px 6px;background:#1a1a2e;border:0.5px solid #3a3a5a;border-radius:4px;color:#e0e0ff;font-family:inherit"><span class="sv" style="font-size:10px">—</span></div>
+    <div style="font-size:10px;color:#555;margin-top:-2px;margin-bottom:8px;line-height:1.5">Defaults: Ti-6Al-4V. Engineering constants compute live via DSM-PBC with sharing-weighted beam contributions.</div>
+
+    <div class="sec-lbl" style="margin-top:12px">directional stiffness</div>
+    <div class="viz-row3">
+      <!-- LEFT: structural metrics -->
+      <div class="viz-tiles">
+        <div class="metric-tile-mini"><span class="mv" id="mBeams">—</span><span class="ml">Beams</span></div>
+        <div class="metric-tile-mini"><span class="mv"><span id="mDensity">—</span><span style="font-size:10px;color:#666;font-weight:400"> %</span></span><span class="ml">Rel ρ̄</span></div>
+        <div class="metric-tile-mini"><span class="mv" id="mLength">—</span><span class="ml">Σ Length</span></div>
+        <div class="metric-tile-mini"><span class="mv" id="mNodes">—</span><span class="ml">Nodes</span></div>
+        <div class="metric-tile-mini"><span class="mv" id="mPbcNodes">—</span><span class="ml">PBC Nodes</span></div>
+        <div class="metric-tile-mini"><span class="mv" id="mMaxwell">—</span><span class="ml">Maxwell M</span></div>
+      </div>
+      <!-- CENTER: stiffness surface canvas + zener bar -->
+      <div class="viz-card">
+        <div class="stiff-canvas-wrap">
+          <canvas id="stiffSurfCv" class="stiff-canvas"></canvas>
+          <div id="mStiffEmpty" class="stiff-empty-overlay">
+            <div class="se-icon">⚠</div>
+            <div class="se-head" id="mStiffEmptyHead">not stiff</div>
+            <div class="se-body" id="mStiffEmptyBody">—</div>
+          </div>
+        </div>
+        <div class="zener-row">
+          <span style="font-size:11px;color:#666">A =</span>
+          <span class="zener-val" id="mZenerVal">—</span>
+          <span class="zener-label" id="mZenerLabel">—</span>
+        </div>
+        <div class="zener-bar">
+          <div class="zener-bar-bg"></div>
+          <div class="zener-bar-tick"></div>
+          <div class="zener-bar-marker" id="mZenerMarker"></div>
+        </div>
+        <div class="zener-axis"><span>axial</span><span>A=1</span><span>diagonal</span></div>
+      </div>
+      <!-- RIGHT: engineering moduli -->
+      <div class="viz-tiles">
+        <div class="metric-tile-mini"><span class="mv" id="mEx" style="color:#22d3ee">—</span><span class="ml">E<sub>x</sub></span></div>
+        <div class="metric-tile-mini"><span class="mv" id="mEy" style="color:#e879f9">—</span><span class="ml">E<sub>y</sub></span></div>
+        <div class="metric-tile-mini"><span class="mv" id="mEz" style="color:#facc15">—</span><span class="ml">E<sub>z</sub></span></div>
+        <div class="metric-tile-mini"><span class="mv" id="mGxy" style="color:#a78bfa">—</span><span class="ml">G<sub>xy</sub></span></div>
+        <div class="metric-tile-mini"><span class="mv" id="mGyz" style="color:#a78bfa">—</span><span class="ml">G<sub>yz</sub></span></div>
+        <div class="metric-tile-mini"><span class="mv" id="mGxz" style="color:#a78bfa">—</span><span class="ml">G<sub>xz</sub></span></div>
+        <div class="metric-tile-mini"><span class="mv" id="mAniso">—</span><span class="ml">aniso</span></div>
+        <div class="metric-tile-mini"><span class="mv" id="mNuxy">—</span><span class="ml">ν<sub>xy</sub></span></div>
+      </div>
+    </div>
+    <!-- Hidden compatibility tile for ν_xz that other code references -->
+    <span id="mNuxz" style="display:none">—</span>
+    <div id="mHomogStatus" style="font-size:10px;color:#555;line-height:1.5;padding:6px 10px;background:#0a0c14;border:0.5px solid #2a2a3a;border-radius:6px;margin-top:6px">Sharing-weighted DSM-PBC, frame elements (axial + bending + torsion). Aniso = max(E)/min(E); 1.00 = isotropic. <strong style="color:#888">Validation:</strong> within 65–100% of literature (e.g., Octet ~67% of DFA ρ̄/9). Use as engineering guidance; cross-check against FEA for design-critical work.</div>
+
+    <div class="export-row">
+      <button id="exportBtn" class="export-btn" onclick="onExportJSON()">JSON</button>
+      <button id="exportLtcxBtn" class="export-btn" onclick="onExportLTCX()">LTCX</button>
+      <button id="exportCsvBtn" class="export-btn" onclick="onExportCSV()">CSV</button>
+    </div>
+    </div><!-- /libraryPanel -->
+
+    <div id="builderPanel" style="display:none">
+      <div class="sec-lbl">cell name</div>
+      <div style="display:flex;gap:6px;margin-bottom:14px">
+        <input type="text" id="bldCellName" value="Custom Cell" style="flex:1;font-size:12px;padding:5px 8px;background:#1a1a2e;border:0.5px solid #3a3a5a;border-radius:5px;color:#e0e0ff;font-family:inherit">
+        <button onclick="bldPushToLibrary()" title="Save this cell to the library and switch to Library tab" style="font-size:11px;padding:4px 14px;border:0.5px solid #c8f542;border-radius:5px;background:rgba(200,245,66,0.10);color:#c8f542;cursor:pointer;font-family:'Exo 2',system-ui,sans-serif;font-weight:600;white-space:nowrap">→ Push to Library</button>
+        <button onclick="bldNewCell()" title="Clear all beams and start a new cell" style="font-size:11px;padding:4px 12px;border:0.5px solid #c8f542;border-radius:5px;background:rgba(200,245,66,0.10);color:#c8f542;cursor:pointer;font-family:'Exo 2',system-ui,sans-serif;font-weight:600;white-space:nowrap">+ New</button>
+      </div>
+
+      <hr class="divider">
+      <!-- Row 1: Snap density | Edit mode | Radius (radius gets 2× width since the slider needs room) -->
+      <div style="display:flex;gap:14px;align-items:flex-end;margin-bottom:14px">
+        <div style="flex:1.5;min-width:0">
+          <div class="sec-lbl">snap density</div>
+          <div class="mode-strip">
+            <button class="mode-btn active" id="btnSnapCoarse" onclick="bldSetSnap('coarse')">Coarse 15</button>
+            <button class="mode-btn" id="btnSnapMedium" onclick="bldSetSnap('medium')">Med 27</button>
+            <button class="mode-btn" id="btnSnapFine" onclick="bldSetSnap('fine')">Fine 63</button>
+          </div>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div class="sec-lbl">edit</div>
+          <div class="mode-strip edit-strip">
+            <button class="mode-btn edit-btn active" id="btnModeAdd" onclick="bldSetMode('add')">⊕ Add</button>
+            <button class="mode-btn edit-btn edit-btn-remove" id="btnModeRemove" onclick="bldSetMode('remove')">⊖ Remove</button>
+          </div>
+        </div>
+        <div style="flex:2;min-width:0">
+          <div class="sec-lbl">radius</div>
+          <div class="sc-group" style="margin-bottom:0;display:flex;align-items:center;gap:8px">
+            <input type="range" id="bldRadius" min="0.02" max="0.30" step="0.005" value="0.10" oninput="bldSetRadius(parseFloat(this.value))" style="flex:1;min-width:0">
+            <span class="sv" id="bldRadiusValue" style="min-width:42px;text-align:right">0.100</span>
+          </div>
+        </div>
+      </div>
+
+      <hr class="divider">
+      <!-- Row 2: Symmetry | History | Tiling (tiling is compact, only 3 buttons) -->
+      <div style="display:flex;gap:14px;align-items:flex-end;margin-bottom:6px">
+        <div style="flex:2;min-width:0">
+          <div class="sec-lbl">symmetry</div>
+          <select id="bldSymmetry" onchange="bldSetSymmetry(this.value)">
+            <option value="none">None (1)</option>
+            <option value="mirror_x">Mirror X (2)</option>
+            <option value="mirror_y">Mirror Y (2)</option>
+            <option value="mirror_z">Mirror Z (2)</option>
+            <option value="mirror_xyz">Mirror XYZ (8)</option>
+            <option value="cubic" selected>Cubic rotations (24)</option>
+            <option value="octahedral">Full octahedral (48)</option>
+          </select>
+        </div>
+        <div style="flex:2;min-width:0">
+          <div class="sec-lbl">history</div>
+          <div style="display:flex;gap:6px">
+            <button class="mode-btn" onclick="bldUndo()" style="flex:1">Undo</button>
+            <button class="mode-btn" onclick="bldRedo()" style="flex:1">Redo</button>
+            <button class="mode-btn" onclick="bldClear()" style="flex:1">Clear</button>
+          </div>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div class="sec-lbl">tiling</div>
+          <div class="mode-strip">
+            <button class="mode-btn active" id="bldTile1" onclick="bldSetTile(1)">1&sup3;</button>
+            <button class="mode-btn" id="bldTile2" onclick="bldSetTile(2)">2&sup3;</button>
+            <button class="mode-btn" id="bldTile3" onclick="bldSetTile(3)">3&sup3;</button>
+          </div>
+        </div>
+      </div>
+      <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:#888;margin-bottom:14px;cursor:pointer">
+        <input type="checkbox" id="bldGhost" checked onchange="bldRedraw()" style="accent-color:#22d3ee">
+        <span>Show ghost preview on hover</span>
+      </label>
+
+      <div id="bldStatusLine" style="font-size:11px;color:#666;line-height:1.5;padding:6px 10px;background:#0a0c14;border:0.5px solid #2a2a3a;border-radius:6px;margin-bottom:14px;min-height:18px">Click a snap point to begin a beam.</div>
+
+      <hr class="divider">
+      <div class="sec-lbl">directional stiffness</div>
+      <div class="viz-row3">
+        <!-- LEFT: structural metrics -->
+        <div class="viz-tiles">
+          <div class="metric-tile-mini"><span class="mv" id="bldMBeams">0</span><span class="ml">Beams</span></div>
+          <div class="metric-tile-mini"><span class="mv"><span id="bldMDensity">0.0</span><span style="font-size:10px;color:#666;font-weight:400"> %</span></span><span class="ml">Rel ρ̄</span></div>
+          <div class="metric-tile-mini"><span class="mv" id="bldMLength">0.0</span><span class="ml">Σ Length</span></div>
+          <div class="metric-tile-mini"><span class="mv" id="bldMNodes">—</span><span class="ml">Nodes</span></div>
+          <div class="metric-tile-mini"><span class="mv" id="bldMPbcNodes">—</span><span class="ml">PBC Nodes</span></div>
+          <div class="metric-tile-mini"><span class="mv" id="bldMMaxwell">—</span><span class="ml">Maxwell M</span></div>
+        </div>
+        <!-- CENTER: stiffness surface -->
+        <div class="viz-card">
+          <div class="stiff-canvas-wrap">
+            <canvas id="bldStiffSurfCv" class="stiff-canvas"></canvas>
+            <div id="bldStiffEmpty" class="stiff-empty-overlay">
+              <div class="se-icon">⚠</div>
+              <div class="se-head" id="bldStiffEmptyHead">not stiff</div>
+              <div class="se-body" id="bldStiffEmptyBody">—</div>
+            </div>
+          </div>
+          <div class="zener-row">
+            <span style="font-size:11px;color:#666">A =</span>
+            <span class="zener-val" id="bldZenerVal">—</span>
+            <span class="zener-label" id="bldZenerLabel">—</span>
+          </div>
+          <div class="zener-bar">
+            <div class="zener-bar-bg"></div>
+            <div class="zener-bar-tick"></div>
+            <div class="zener-bar-marker" id="bldZenerMarker"></div>
+          </div>
+          <div class="zener-axis"><span>axial</span><span>A=1</span><span>diagonal</span></div>
+        </div>
+        <!-- RIGHT: engineering moduli -->
+        <div class="viz-tiles">
+          <div class="metric-tile-mini"><span class="mv" id="bldMEx" style="color:#22d3ee">—</span><span class="ml">E<sub>x</sub></span></div>
+          <div class="metric-tile-mini"><span class="mv" id="bldMEy" style="color:#e879f9">—</span><span class="ml">E<sub>y</sub></span></div>
+          <div class="metric-tile-mini"><span class="mv" id="bldMEz" style="color:#facc15">—</span><span class="ml">E<sub>z</sub></span></div>
+          <div class="metric-tile-mini"><span class="mv" id="bldMGxy" style="color:#a78bfa">—</span><span class="ml">G<sub>xy</sub></span></div>
+          <div class="metric-tile-mini"><span class="mv" id="bldMGyz" style="color:#a78bfa">—</span><span class="ml">G<sub>yz</sub></span></div>
+          <div class="metric-tile-mini"><span class="mv" id="bldMGxz" style="color:#a78bfa">—</span><span class="ml">G<sub>xz</sub></span></div>
+          <div class="metric-tile-mini"><span class="mv" id="bldMAniso">—</span><span class="ml">aniso</span></div>
+          <div class="metric-tile-mini"><span class="mv" id="bldMNuxy">—</span><span class="ml">ν<sub>xy</sub></span></div>
+        </div>
+      </div>
+      <div id="bldHomogStatus" style="font-size:10px;color:#555;line-height:1.5;padding:6px 10px;background:#0a0c14;border:0.5px solid #2a2a3a;border-radius:6px;margin-bottom:14px">Sharing-weighted DSM-PBC, frame elements. Material on Library tab. <strong style="color:#888">Validation:</strong> within 65–100% of literature for known cells; treat as engineering guidance.</div>
+
+      <hr class="divider">
+      <div class="export-row">
+        <button id="bldExportBtn" class="export-btn" onclick="bldExportJSON()">JSON</button>
+        <button id="bldExportLtcxBtn" class="export-btn" onclick="bldExportLTCX()">LTCX</button>
+        <button id="bldExportCsvBtn" class="export-btn" onclick="bldExportCSV()">CSV</button>
+      </div>
+    </div><!-- /builderPanel -->
+
+  </div>
+</div>
+
+<script>
+// ============================================================================
+// F13LD.beam — Path A (uniform array of beam endpoints, no field bake)
+// ============================================================================
+
+// Embedded catalog: 14 cubic topologies. All endpoints in [-1,+1]^3 cube.
+var BEAM_CATALOGS = {"simple_cubic":[[-1,-1,-1,1,-1,-1],[-1,-1,-1,-1,1,-1],[-1,-1,-1,-1,-1,1],[1,-1,-1,1,1,-1],[1,-1,-1,1,-1,1],[-1,1,-1,1,1,-1],[-1,1,-1,-1,1,1],[1,1,-1,1,1,1],[-1,-1,1,1,-1,1],[-1,-1,1,-1,1,1],[1,-1,1,1,1,1],[-1,1,1,1,1,1]],"bcc":[[-1,-1,-1,0,0,0],[1,-1,-1,0,0,0],[-1,1,-1,0,0,0],[1,1,-1,0,0,0],[-1,-1,1,0,0,0],[1,-1,1,0,0,0],[-1,1,1,0,0,0],[1,1,1,0,0,0]],"fcc":[[-1,-1,-1,-1,1,1],[-1,1,-1,-1,-1,1],[1,-1,-1,1,1,1],[1,1,-1,1,-1,1],[-1,-1,-1,1,-1,1],[1,-1,-1,-1,-1,1],[-1,1,-1,1,1,1],[1,1,-1,-1,1,1],[-1,-1,-1,1,1,-1],[1,-1,-1,-1,1,-1],[-1,-1,1,1,1,1],[1,-1,1,-1,1,1]],"diamond":[[-0.5,-0.5,-0.5,-1,-1,-1],[-0.5,-0.5,-0.5,-1,0,0],[-0.5,-0.5,-0.5,0,-1,0],[-0.5,-0.5,-0.5,0,0,-1],[0.5,0.5,-0.5,1,1,-1],[0.5,0.5,-0.5,1,0,0],[0.5,0.5,-0.5,0,1,0],[0.5,0.5,-0.5,0,0,-1],[0.5,-0.5,0.5,1,-1,1],[0.5,-0.5,0.5,1,0,0],[0.5,-0.5,0.5,0,-1,0],[0.5,-0.5,0.5,0,0,1],[-0.5,0.5,0.5,-1,1,1],[-0.5,0.5,0.5,-1,0,0],[-0.5,0.5,0.5,0,1,0],[-0.5,0.5,0.5,0,0,1]],"octahedron":[[-1,0,0,0,-1,0],[-1,0,0,0,1,0],[-1,0,0,0,0,-1],[-1,0,0,0,0,1],[1,0,0,0,-1,0],[1,0,0,0,1,0],[1,0,0,0,0,-1],[1,0,0,0,0,1],[0,-1,0,0,0,-1],[0,-1,0,0,0,1],[0,1,0,0,0,-1],[0,1,0,0,0,1]],"octet":[[-1,0,0,0,-1,0],[-1,0,0,0,1,0],[-1,0,0,0,0,-1],[-1,0,0,0,0,1],[1,0,0,0,-1,0],[1,0,0,0,1,0],[1,0,0,0,0,-1],[1,0,0,0,0,1],[0,-1,0,0,0,-1],[0,-1,0,0,0,1],[0,1,0,0,0,-1],[0,1,0,0,0,1],[-1,-1,-1,-1,0,0],[-1,-1,-1,0,-1,0],[-1,-1,-1,0,0,-1],[1,-1,-1,1,0,0],[1,-1,-1,0,-1,0],[1,-1,-1,0,0,-1],[-1,1,-1,-1,0,0],[-1,1,-1,0,1,0],[-1,1,-1,0,0,-1],[1,1,-1,1,0,0],[1,1,-1,0,1,0],[1,1,-1,0,0,-1],[-1,-1,1,-1,0,0],[-1,-1,1,0,-1,0],[-1,-1,1,0,0,1],[1,-1,1,1,0,0],[1,-1,1,0,-1,0],[1,-1,1,0,0,1],[-1,1,1,-1,0,0],[-1,1,1,0,1,0],[-1,1,1,0,0,1],[1,1,1,1,0,0],[1,1,1,0,1,0],[1,1,1,0,0,1]],"cuboctahedron":[[0,-1,-1,-1,0,-1],[0,-1,-1,-1,-1,0],[0,-1,-1,1,0,-1],[0,-1,-1,1,-1,0],[-1,0,-1,-1,-1,0],[-1,0,-1,-1,1,0],[-1,0,-1,0,1,-1],[-1,-1,0,0,-1,1],[-1,-1,0,-1,0,1],[0,-1,1,-1,0,1],[0,-1,1,1,-1,0],[0,-1,1,1,0,1],[-1,0,1,-1,1,0],[-1,0,1,0,1,1],[-1,1,0,0,1,-1],[-1,1,0,0,1,1],[0,1,-1,1,0,-1],[0,1,-1,1,1,0],[1,0,-1,1,-1,0],[1,0,-1,1,1,0],[1,-1,0,1,0,1],[0,1,1,1,0,1],[0,1,1,1,1,0],[1,0,1,1,1,0]],"bcc_z":[[-1,-1,-1,0,0,0],[1,-1,-1,0,0,0],[-1,1,-1,0,0,0],[1,1,-1,0,0,0],[-1,-1,1,0,0,0],[1,-1,1,0,0,0],[-1,1,1,0,0,0],[1,1,1,0,0,0],[-1,-1,-1,-1,-1,1],[1,-1,-1,1,-1,1],[-1,1,-1,-1,1,1],[1,1,-1,1,1,1]],"fcc_z":[[-1,-1,-1,-1,1,1],[-1,1,-1,-1,-1,1],[1,-1,-1,1,1,1],[1,1,-1,1,-1,1],[-1,-1,-1,1,-1,1],[1,-1,-1,-1,-1,1],[-1,1,-1,1,1,1],[1,1,-1,-1,1,1],[-1,-1,-1,1,1,-1],[1,-1,-1,-1,1,-1],[-1,-1,1,1,1,1],[1,-1,1,-1,1,1],[-1,-1,-1,-1,-1,1],[1,-1,-1,1,-1,1],[-1,1,-1,-1,1,1],[1,1,-1,1,1,1]],"bcc_edges":[[-1,-1,-1,0,0,0],[1,-1,-1,0,0,0],[-1,1,-1,0,0,0],[1,1,-1,0,0,0],[-1,-1,1,0,0,0],[1,-1,1,0,0,0],[-1,1,1,0,0,0],[1,1,1,0,0,0],[-1,-1,-1,1,-1,-1],[-1,-1,-1,-1,1,-1],[-1,-1,-1,-1,-1,1],[1,-1,-1,1,1,-1],[1,-1,-1,1,-1,1],[-1,1,-1,1,1,-1],[-1,1,-1,-1,1,1],[1,1,-1,1,1,1],[-1,-1,1,1,-1,1],[-1,-1,1,-1,1,1],[1,-1,1,1,1,1],[-1,1,1,1,1,1]],"fcc_edges":[[-1,-1,-1,-1,1,1],[-1,1,-1,-1,-1,1],[1,-1,-1,1,1,1],[1,1,-1,1,-1,1],[-1,-1,-1,1,-1,1],[1,-1,-1,-1,-1,1],[-1,1,-1,1,1,1],[1,1,-1,-1,1,1],[-1,-1,-1,1,1,-1],[1,-1,-1,-1,1,-1],[-1,-1,1,1,1,1],[1,-1,1,-1,1,1],[-1,-1,-1,1,-1,-1],[-1,-1,-1,-1,1,-1],[-1,-1,-1,-1,-1,1],[1,-1,-1,1,1,-1],[1,-1,-1,1,-1,1],[-1,1,-1,1,1,-1],[-1,1,-1,-1,1,1],[1,1,-1,1,1,1],[-1,-1,1,1,-1,1],[-1,-1,1,-1,1,1],[1,-1,1,1,1,1],[-1,1,1,1,1,1]],"tesseract":[[-1,-1,-1,1,-1,-1],[-1,-1,-1,-1,1,-1],[-1,-1,-1,-1,-1,1],[1,-1,-1,1,1,-1],[1,-1,-1,1,-1,1],[-1,1,-1,1,1,-1],[-1,1,-1,-1,1,1],[1,1,-1,1,1,1],[-1,-1,1,1,-1,1],[-1,-1,1,-1,1,1],[1,-1,1,1,1,1],[-1,1,1,1,1,1],[-0.5,-0.5,-0.5,0.5,-0.5,-0.5],[-0.5,-0.5,-0.5,-0.5,0.5,-0.5],[-0.5,-0.5,-0.5,-0.5,-0.5,0.5],[0.5,-0.5,-0.5,0.5,0.5,-0.5],[0.5,-0.5,-0.5,0.5,-0.5,0.5],[-0.5,0.5,-0.5,0.5,0.5,-0.5],[-0.5,0.5,-0.5,-0.5,0.5,0.5],[0.5,0.5,-0.5,0.5,0.5,0.5],[-0.5,-0.5,0.5,0.5,-0.5,0.5],[-0.5,-0.5,0.5,-0.5,0.5,0.5],[0.5,-0.5,0.5,0.5,0.5,0.5],[-0.5,0.5,0.5,0.5,0.5,0.5],[-1,-1,-1,-0.5,-0.5,-0.5],[1,-1,-1,0.5,-0.5,-0.5],[-1,1,-1,-0.5,0.5,-0.5],[1,1,-1,0.5,0.5,-0.5],[-1,-1,1,-0.5,-0.5,0.5],[1,-1,1,0.5,-0.5,0.5],[-1,1,1,-0.5,0.5,0.5],[1,1,1,0.5,0.5,0.5]],"truncated_cube":[[-0.4,-1,-1,0.4,-1,-1],[-0.4,-1,-1,-1,-0.4,-1],[-0.4,-1,-1,-1,-1,-0.4],[-0.4,-1,1,0.4,-1,1],[-0.4,-1,1,-1,-0.4,1],[-0.4,-1,1,-1,-1,0.4],[-0.4,1,-1,0.4,1,-1],[-0.4,1,-1,-1,0.4,-1],[-0.4,1,-1,-1,1,-0.4],[-0.4,1,1,0.4,1,1],[-0.4,1,1,-1,0.4,1],[-0.4,1,1,-1,1,0.4],[0.4,-1,-1,1,-0.4,-1],[0.4,-1,-1,1,-1,-0.4],[0.4,-1,1,1,-0.4,1],[0.4,-1,1,1,-1,0.4],[0.4,1,-1,1,0.4,-1],[0.4,1,-1,1,1,-0.4],[0.4,1,1,1,0.4,1],[0.4,1,1,1,1,0.4],[-1,-0.4,-1,-1,0.4,-1],[-1,-0.4,-1,-1,-1,-0.4],[-1,-0.4,1,-1,0.4,1],[-1,-0.4,1,-1,-1,0.4],[1,-0.4,-1,1,0.4,-1],[1,-0.4,-1,1,-1,-0.4],[1,-0.4,1,1,0.4,1],[1,-0.4,1,1,-1,0.4],[-1,0.4,-1,-1,1,-0.4],[-1,0.4,1,-1,1,0.4],[1,0.4,-1,1,1,-0.4],[1,0.4,1,1,1,0.4],[-1,-1,-0.4,-1,-1,0.4],[-1,1,-0.4,-1,1,0.4],[1,-1,-0.4,1,-1,0.4],[1,1,-0.4,1,1,0.4]],"cartesian_cross":[[-1,0,0,1,0,0],[0,-1,0,0,1,0],[0,0,-1,0,0,1]],"kelvin":[[0,-0.5,-1,0,-1,-0.5],[0,-0.5,-1,-0.5,0,-1],[0,-0.5,-1,0.5,0,-1],[0,-0.5,1,0,-1,0.5],[0,-0.5,1,-0.5,0,1],[0,-0.5,1,0.5,0,1],[0,0.5,-1,0,1,-0.5],[0,0.5,-1,-0.5,0,-1],[0,0.5,-1,0.5,0,-1],[0,0.5,1,0,1,0.5],[0,0.5,1,-0.5,0,1],[0,0.5,1,0.5,0,1],[0,-1,-0.5,-0.5,-1,0],[0,-1,-0.5,0.5,-1,0],[0,1,-0.5,-0.5,1,0],[0,1,-0.5,0.5,1,0],[0,-1,0.5,-0.5,-1,0],[0,-1,0.5,0.5,-1,0],[0,1,0.5,-0.5,1,0],[0,1,0.5,0.5,1,0],[-0.5,0,-1,-1,0,-0.5],[-0.5,0,1,-1,0,0.5],[0.5,0,-1,1,0,-0.5],[0.5,0,1,1,0,0.5],[-1,0,-0.5,-1,-0.5,0],[-1,0,-0.5,-1,0.5,0],[1,0,-0.5,1,-0.5,0],[1,0,-0.5,1,0.5,0],[-1,0,0.5,-1,-0.5,0],[-1,0,0.5,-1,0.5,0],[1,0,0.5,1,-0.5,0],[1,0,0.5,1,0.5,0],[-0.5,-1,0,-1,-0.5,0],[-0.5,1,0,-1,0.5,0],[0.5,-1,0,1,-0.5,0],[0.5,1,0,1,0.5,0]],"rhombic_dodec":[[-1,0,0,-0.5,-0.5,-0.5],[-1,0,0,-0.5,0.5,-0.5],[-1,0,0,-0.5,-0.5,0.5],[-1,0,0,-0.5,0.5,0.5],[1,0,0,0.5,-0.5,-0.5],[1,0,0,0.5,0.5,-0.5],[1,0,0,0.5,-0.5,0.5],[1,0,0,0.5,0.5,0.5],[0,-1,0,-0.5,-0.5,-0.5],[0,-1,0,0.5,-0.5,-0.5],[0,-1,0,-0.5,-0.5,0.5],[0,-1,0,0.5,-0.5,0.5],[0,1,0,-0.5,0.5,-0.5],[0,1,0,0.5,0.5,-0.5],[0,1,0,-0.5,0.5,0.5],[0,1,0,0.5,0.5,0.5],[0,0,-1,-0.5,-0.5,-0.5],[0,0,-1,0.5,-0.5,-0.5],[0,0,-1,-0.5,0.5,-0.5],[0,0,-1,0.5,0.5,-0.5],[0,0,1,-0.5,-0.5,0.5],[0,0,1,0.5,-0.5,0.5],[0,0,1,-0.5,0.5,0.5],[0,0,1,0.5,0.5,0.5]],"reentrant":[[-1,-1,1,1,-1,1],[-1,1,1,1,1,1],[-1,-1,1,-1,1,1],[1,-1,1,1,1,1],[-1,-1,-1,1,-1,-1],[-1,1,-1,1,1,-1],[-1,-1,-1,-1,1,-1],[1,-1,-1,1,1,-1],[-1,-1,-1,-0.5,-0.5,0],[-0.5,-0.5,0,-1,-1,1],[1,-1,-1,0.5,-0.5,0],[0.5,-0.5,0,1,-1,1],[-1,1,-1,-0.5,0.5,0],[-0.5,0.5,0,-1,1,1],[1,1,-1,0.5,0.5,0],[0.5,0.5,0,1,1,1]],"f2bcc":[[-1,-1,-1,-1,1,1],[-1,1,-1,-1,-1,1],[1,-1,-1,1,1,1],[1,1,-1,1,-1,1],[-1,-1,-1,1,-1,1],[1,-1,-1,-1,-1,1],[-1,1,-1,1,1,1],[1,1,-1,-1,1,1],[-1,-1,-1,1,1,-1],[1,-1,-1,-1,1,-1],[-1,-1,1,1,1,1],[1,-1,1,-1,1,1],[-1,-1,-1,0,0,0],[1,-1,-1,0,0,0],[-1,1,-1,0,0,0],[1,1,-1,0,0,0],[-1,-1,1,0,0,0],[1,-1,1,0,0,0],[-1,1,1,0,0,0],[1,1,1,0,0,0]],"f2bcc_z":[[-1,-1,-1,-1,1,1],[-1,1,-1,-1,-1,1],[1,-1,-1,1,1,1],[1,1,-1,1,-1,1],[-1,-1,-1,1,-1,1],[1,-1,-1,-1,-1,1],[-1,1,-1,1,1,1],[1,1,-1,-1,1,1],[-1,-1,-1,1,1,-1],[1,-1,-1,-1,1,-1],[-1,-1,1,1,1,1],[1,-1,1,-1,1,1],[-1,-1,-1,0,0,0],[1,-1,-1,0,0,0],[-1,1,-1,0,0,0],[1,1,-1,0,0,0],[-1,-1,1,0,0,0],[1,-1,1,0,0,0],[-1,1,1,0,0,0],[1,1,1,0,0,0],[-1,-1,-1,-1,-1,1],[1,-1,-1,1,-1,1],[-1,1,-1,-1,1,1],[1,1,-1,1,1,1]],"tetrahedron":[[-1,-1,-1,1,1,-1],[-1,-1,-1,1,-1,1],[-1,-1,-1,-1,1,1],[1,1,-1,1,-1,1],[1,1,-1,-1,1,1],[1,-1,1,-1,1,1]],"octet_z":[[-1,0,0,0,-1,0],[-1,0,0,0,1,0],[-1,0,0,0,0,-1],[-1,0,0,0,0,1],[1,0,0,0,-1,0],[1,0,0,0,1,0],[1,0,0,0,0,-1],[1,0,0,0,0,1],[0,-1,0,0,0,-1],[0,-1,0,0,0,1],[0,1,0,0,0,-1],[0,1,0,0,0,1],[-1,-1,-1,-1,0,0],[-1,-1,-1,0,-1,0],[-1,-1,-1,0,0,-1],[1,-1,-1,1,0,0],[1,-1,-1,0,-1,0],[1,-1,-1,0,0,-1],[-1,1,-1,-1,0,0],[-1,1,-1,0,1,0],[-1,1,-1,0,0,-1],[1,1,-1,1,0,0],[1,1,-1,0,1,0],[1,1,-1,0,0,-1],[-1,-1,1,-1,0,0],[-1,-1,1,0,-1,0],[-1,-1,1,0,0,1],[1,-1,1,1,0,0],[1,-1,1,0,-1,0],[1,-1,1,0,0,1],[-1,1,1,-1,0,0],[-1,1,1,0,1,0],[-1,1,1,0,0,1],[1,1,1,1,0,0],[1,1,1,0,1,0],[1,1,1,0,0,1],[-1,-1,-1,-1,-1,1],[1,-1,-1,1,-1,1],[-1,1,-1,-1,1,1],[1,1,-1,1,1,1]],"oct_edges":[[-1,0,0,0,-1,0],[-1,0,0,0,1,0],[-1,0,0,0,0,-1],[-1,0,0,0,0,1],[1,0,0,0,-1,0],[1,0,0,0,1,0],[1,0,0,0,0,-1],[1,0,0,0,0,1],[0,-1,0,0,0,-1],[0,-1,0,0,0,1],[0,1,0,0,0,-1],[0,1,0,0,0,1],[-1,-1,-1,1,-1,-1],[-1,-1,-1,-1,1,-1],[-1,-1,-1,-1,-1,1],[1,-1,-1,1,1,-1],[1,-1,-1,1,-1,1],[-1,1,-1,1,1,-1],[-1,1,-1,-1,1,1],[1,1,-1,1,1,1],[-1,-1,1,1,-1,1],[-1,-1,1,-1,1,1],[1,-1,1,1,1,1],[-1,1,1,1,1,1]]};
+
+var TOPO_DESC = {"simple_cubic":"Cube edges only. Bending-dominated, low stiffness, highly anisotropic.","bcc":"Corners → center. Stretching-dominated body diagonals.","fcc":"Face diagonals (X-shape on each face). 12 struts, near-isotropic stretch.","diamond":"sp3 tetrahedral bonds: 4 interior nodes each bonded to 1 corner + 3 face centers.","octahedron":"Single octahedron — 6 face centers, 12 edges. Pin-jointed stable.","octet":"Fuller's octet truss: octahedron + corner tetrahedra. Maxwell-stable.","cuboctahedron":"Vertices at cube edge midpoints. 24 edges, 4-fold + 3-fold symmetry.","bcc_z":"BCC + 4 vertical Z-edges. Common in metal PBF orthopedic scaffolds.","fcc_z":"FCC face-X + 4 vertical Z-edges. Reinforced stiffness with Z bias.","bcc_edges":"BCC + all 12 cube edges. Adds bending resistance to body diagonals.","fcc_edges":"FCC face-X + all 12 cube edges. High connectivity at corners.","tesseract":"4D hypercube projection: outer + inner cube + 8 corner connectors.","truncated_cube":"Cube with chamfered corners. 6 octagonal faces + 8 triangle corners.","cartesian_cross":"Three orthogonal axes only. Minimum cubic — useful as reference.","kelvin":"Truncated octahedron (Kelvin cell). 36 edges. Foam-mechanics canonical; minimal surface partition.","rhombic_dodec":"Voronoi cell of FCC packing. 14 vertices, 24 edges. Common in trabecular bone scaffolds.","reentrant":"3D re-entrant auxetic (Evans 1994). Bow-tie verticals. Negative Poisson's ratio in compression.","f2bcc":"FCC face-X + BCC body diagonals (no cube edges). 20 struts; near-isotropic stretch with shear coupling.","f2bcc_z":"F2BCC + 4 vertical Z-edges. 24 struts. Strong reinforcement for axial compression.","tetrahedron":"Single regular tetrahedron inscribed in cube (4 alternating corners). Minimum stable 3D truss.","octet_z":"Octet truss + 4 vertical Z-edges. 40 struts. Maximum-stiffness reinforced topology.","oct_edges":"Octahedron + cube edges. 24 struts. Combines axial-cross with frame-stabilized cube."};
+
+var MAX_BEAMS = 256;  // shader uniform array bound — covers full octahedral symmetry orbits stacked
+var IND_READY = '#22d3ee', IND_WORKING = '#f59e0b';
+var currentQuality = 'medium';
+var currentTile = 1;  // 1, 2, or 3 — uniform tiling factor via SDF modulo
+var raymarcher = null;
+
+// ─── Status indicators ──────────────────────────────────────────────────────
+function setShaderStatus(working) {
+  var d = document.getElementById('dotShader');
+  var l = document.getElementById('labelShader');
+  d.style.background = working ? IND_WORKING : IND_READY;
+  l.style.color = working ? IND_WORKING : IND_READY;
+  l.textContent = working ? 'compiling' : 'ready';
+}
+
+// ─── Parameter readout ──────────────────────────────────────────────────────
+function getParams() {
+  return {
+    topology: document.getElementById('topology').value,
+    radius: parseFloat(document.getElementById('radius').value),
+    cell: parseFloat(document.getElementById('cell').value),
+    tile: currentTile,
+    quality: currentQuality
+  };
+}
+
+// ─── Metric computation (CPU) ──────────────────────────────────────────────
+function computeMetrics(p) {
+  var beams = BEAM_CATALOGS[p.topology];
+  var sumLen = 0;
+  for (var i = 0; i < beams.length; i++) {
+    var b = beams[i];
+    var L = Math.sqrt(
+      (b[3]-b[0])*(b[3]-b[0]) + (b[4]-b[1])*(b[4]-b[1]) + (b[5]-b[2])*(b[5]-b[2])
+    );
+    sumLen += L / beamSharingFactor(b);  // weight by 1/N for shared beams (cube edges, faces)
+  }
+  // cell-local: cube spans [-1,+1] = 2 units. Volume of cell in local units = 8.
+  // Density = total physical tube volume per cell / cell volume.
+  var rL = p.radius;
+  var tubeVol = Math.PI * rL * rL * sumLen;
+  var density = tubeVol / 8.0;
+  return {
+    beamCount: beams.length,
+    densityPct: Math.min(density * 100, 100),
+    sumLength: sumLen
+  };
+}
+
+// Compute homogenization (Phase 1: node counts + Maxwell number) for an arbitrary
+// beam list. PBC node-merging folds boundary coordinates (|c|=1) to a canonical
+// negative sign so that nodes on opposite faces/edges/corners are counted once.
+function computeHomogenization(beams) {
+  // Match the homogenizer: analyze the welded geometry, not just the authored
+  // beam endpoints. Crossing-beam vertices are added before counting.
+  if (beams && beams.length > 0) beams = splitBeamsAtIntersections(beams);
+  var EPS = 1e-4;
+  function key(x, y, z) {
+    return x.toFixed(4) + ',' + y.toFixed(4) + ',' + z.toFixed(4);
+  }
+  function canonKey(x, y, z) {
+    var cx = (Math.abs(Math.abs(x) - 1) < EPS) ? -1 : x;
+    var cy = (Math.abs(Math.abs(y) - 1) < EPS) ? -1 : y;
+    var cz = (Math.abs(Math.abs(z) - 1) < EPS) ? -1 : z;
+    return cx.toFixed(4) + ',' + cy.toFixed(4) + ',' + cz.toFixed(4);
+  }
+  var rawSet = {};
+  var pbcSet = {};
+  for (var i = 0; i < beams.length; i++) {
+    var b = beams[i];
+    rawSet[key(b[0], b[1], b[2])] = 1;
+    rawSet[key(b[3], b[4], b[5])] = 1;
+    pbcSet[canonKey(b[0], b[1], b[2])] = 1;
+    pbcSet[canonKey(b[3], b[4], b[5])] = 1;
+  }
+  var nRaw = Object.keys(rawSet).length;
+  var nPbc = Object.keys(pbcSet).length;
+  var bCount = beams.length;
+  // Maxwell number for periodic frame (3D): M = b - 3n + 6
+  var maxwell = bCount - 3 * nPbc + 6;
+  return { nRaw: nRaw, nPbc: nPbc, maxwell: maxwell };
+}
+
+// Sharing factor for a beam under PBC: how many cells "claim" this beam.
+// A beam fully interior to the cell: 1 (it lives only in this cell).
+// A beam on a cube face (both endpoints on the same face): 2 (this cell + opposite-face neighbor).
+// A beam on a cube edge (both endpoints on the same edge — same sign on 2 axes at |c|=1): 4.
+// A beam can't lie on a corner (corners are 0D). Returns 1, 2, or 4.
+function beamSharingFactor(b) {
+  var EPS = 1e-4;
+  var onFaces = 0;
+  for (var ax = 0; ax < 3; ax++) {
+    var a = b[ax], c = b[ax + 3];
+    if (Math.abs(Math.abs(a) - 1) < EPS && Math.abs(Math.abs(c) - 1) < EPS && Math.sign(a) === Math.sign(c)) {
+      onFaces++;
+    }
+  }
+  return Math.pow(2, onFaces);  // 0 → 1, 1 → 2, 2 → 4
+}
+
+// ─── Phase 2: Direct Stiffness Method with Periodic Boundary Conditions ──
+// Cholesky decomposition of symmetric positive-definite matrix.
+// A is row-major flat array of size n*n. Decomposes A in-place into L (lower triangular).
+// Returns true on success, false if A is not positive definite.
+function cholesky(A, n) {
+  for (var j = 0; j < n; j++) {
+    for (var i = j; i < n; i++) {
+      var sum = A[i*n + j];
+      for (var k = 0; k < j; k++) sum -= A[i*n + k] * A[j*n + k];
+      if (i === j) {
+        if (sum <= 1e-14) return false;
+        A[i*n + j] = Math.sqrt(sum);
+      } else {
+        A[i*n + j] = sum / A[j*n + j];
+      }
+    }
+  }
+  return true;
+}
+// Solve LL^T x = b given L (from cholesky). Returns x as a new array.
+function choleskySolve(L, b, n) {
+  var y = new Array(n);
+  for (var i = 0; i < n; i++) {
+    var sum = b[i];
+    for (var k = 0; k < i; k++) sum -= L[i*n + k] * y[k];
+    y[i] = sum / L[i*n + i];
+  }
+  var x = new Array(n);
+  for (var i = n-1; i >= 0; i--) {
+    var sum = y[i];
+    for (var k = i+1; k < n; k++) sum -= L[k*n + i] * x[k];
+    x[i] = sum / L[i*n + i];
+  }
+  return x;
+}
+
+// Invert symmetric 6x6 matrix via Cholesky (used for compliance from stiffness).
+function invSymmetric6(M) {
+  var A = M.slice();
+  if (!cholesky(A, 6)) return null;
+  var inv = new Array(36);
+  for (var col = 0; col < 6; col++) {
+    var b = [0,0,0,0,0,0]; b[col] = 1;
+    var x = choleskySolve(A, b, 6);
+    for (var row = 0; row < 6; row++) inv[row*6 + col] = x[row];
+  }
+  return inv;
+}
+
+// Build 12x12 element stiffness for an Euler-Bernoulli frame element in LOCAL coordinates.
+// Local x is along beam axis; local y, z are transverse principal axes.
+// Inputs: L (length), E, G (shear modulus), A (cross-section area), I (second moment of area, same in y and z for circular), J (polar moment).
+function beamLocalStiffness(L, E, G, A, I, J) {
+  var k = new Array(144).fill(0);
+  function S(i, j, v) { k[i*12 + j] = v; k[j*12 + i] = v; }
+  function D(i, v) { k[i*12 + i] = v; }
+  var EA_L = E * A / L;
+  var GJ_L = G * J / L;
+  var EI3 = 12 * E * I / (L*L*L);
+  var EI2 = 6 * E * I / (L*L);
+  var EI1a = 4 * E * I / L;
+  var EI1b = 2 * E * I / L;
+  // Axial (x-direction): DOF 0 and 6
+  D(0, EA_L); D(6, EA_L); S(0, 6, -EA_L);
+  // Torsion (rotation about x): DOF 3 and 9
+  D(3, GJ_L); D(9, GJ_L); S(3, 9, -GJ_L);
+  // Bending in xy-plane (translation y, rotation about z): DOFs 1, 5, 7, 11
+  D(1, EI3); D(7, EI3); S(1, 7, -EI3);
+  D(5, EI1a); D(11, EI1a); S(5, 11, EI1b);
+  S(1, 5, EI2); S(1, 11, EI2); S(5, 7, -EI2); S(7, 11, -EI2);
+  // Bending in xz-plane (translation z, rotation about y): DOFs 2, 4, 8, 10
+  D(2, EI3); D(8, EI3); S(2, 8, -EI3);
+  D(4, EI1a); D(10, EI1a); S(4, 10, EI1b);
+  S(2, 4, -EI2); S(2, 10, -EI2); S(4, 8, EI2); S(8, 10, EI2);
+  return k;
+}
+
+// 3x3 rotation matrix sending local x-axis to the beam axis.
+// Returns row-major 9-array.
+function beamRotation(ax, ay, az) {
+  // Local x = beam axis (ax, ay, az), unit
+  // Local y = perp to x, choose deterministically
+  var refX = 0, refY = 0, refZ = 1;
+  if (Math.abs(az) > 0.99) { refX = 0; refY = 1; refZ = 0; }  // beam ~ along z; use y as ref
+  // Local z = normalize(localX × ref)... wait we want local y first
+  // local_y = normalize(ref × local_x)
+  var lyx = refY*az - refZ*ay;
+  var lyy = refZ*ax - refX*az;
+  var lyz = refX*ay - refY*ax;
+  var lyN = Math.sqrt(lyx*lyx + lyy*lyy + lyz*lyz);
+  lyx /= lyN; lyy /= lyN; lyz /= lyN;
+  // local_z = local_x × local_y
+  var lzx = ay*lyz - az*lyy;
+  var lzy = az*lyx - ax*lyz;
+  var lzz = ax*lyy - ay*lyx;
+  // Rotation R: rows are local axes in global frame.
+  // u_local = R · u_global; u_global = R^T · u_local
+  return [
+    ax,  ay,  az,
+    lyx, lyy, lyz,
+    lzx, lzy, lzz
+  ];
+}
+
+// Apply 12x12 transformation T (block-diag of 4 copies of 3x3 R) to compute K_global = T^T K_local T.
+// Returns K_global as 144-array.
+function transformBeamStiffness(kLocal, R) {
+  // T is block-diag(R, R, R, R), 12x12. T^T is block-diag(R^T, R^T, R^T, R^T).
+  // K_g = T^T K T
+  // First compute K T (12x12): for each column j of K, transform column j by T.
+  // Actually each "row" of T corresponds to a global DOF i. The block-diag structure means
+  // applying T means rotating each 3-block.
+  // Let's just do it block-wise: K is 12x12, partition into 4x4 grid of 3x3 blocks.
+  // (K_g)_block[bi][bj] = R^T · K_block[bi][bj] · R
+  var Kg = new Array(144);
+  for (var bi = 0; bi < 4; bi++) {
+    for (var bj = 0; bj < 4; bj++) {
+      // Extract 3x3 block from kLocal
+      var block = [0,0,0,0,0,0,0,0,0];
+      for (var i = 0; i < 3; i++) for (var j = 0; j < 3; j++) {
+        block[i*3 + j] = kLocal[(bi*3+i)*12 + (bj*3+j)];
+      }
+      // tmp = R^T · block (3x3)
+      var tmp = [0,0,0,0,0,0,0,0,0];
+      for (var i = 0; i < 3; i++) for (var j = 0; j < 3; j++) {
+        var s = 0;
+        for (var k = 0; k < 3; k++) s += R[k*3 + i] * block[k*3 + j];
+        tmp[i*3 + j] = s;
+      }
+      // result = tmp · R (3x3)
+      var res = [0,0,0,0,0,0,0,0,0];
+      for (var i = 0; i < 3; i++) for (var j = 0; j < 3; j++) {
+        var s = 0;
+        for (var k = 0; k < 3; k++) s += tmp[i*3 + k] * R[k*3 + j];
+        res[i*3 + j] = s;
+      }
+      // Place into Kg
+      for (var i = 0; i < 3; i++) for (var j = 0; j < 3; j++) {
+        Kg[(bi*3+i)*12 + (bj*3+j)] = res[i*3 + j];
+      }
+    }
+  }
+  return Kg;
+}
+
+// Convert Voigt index (0..5) to symmetric 3x3 strain tensor.
+// Convention: 0=xx, 1=yy, 2=zz, 3=yz (engineering shear: 2εyz=1), 4=xz, 5=xy
+function voigtStrainTensor(j) {
+  var e = [0,0,0, 0,0,0, 0,0,0];
+  if (j === 0) e[0] = 1;            // εxx = 1
+  else if (j === 1) e[4] = 1;       // εyy = 1
+  else if (j === 2) e[8] = 1;       // εzz = 1
+  else if (j === 3) { e[5] = 0.5; e[7] = 0.5; }  // 2εyz=1 means εyz=0.5
+  else if (j === 4) { e[2] = 0.5; e[6] = 0.5; }  // 2εxz=1
+  else if (j === 5) { e[1] = 0.5; e[3] = 0.5; }  // 2εxy=1
+  return e;
+}
+
+// Main DSM-PBC homogenization.
+// Returns {C: 36-array (6x6 row-major), Ex,Ey,Ez,Gyz,Gxz,Gxy,nuxy,nuxz,nuyz,nuyx,nuzx,nuzy, anisotropy, valid: bool}
+// Build PBC-canonical node graph and count connected components. A cell with
+// >1 component cannot be stiff under periodic BCs — the components can translate
+// independently of each other (a rigid-body mechanism), so the homogenized C is
+// singular. Returns { components: number, sizes: [int...] }.
+//
+// Mirrors the canonicalization used inside homogenizeDSM (face/edge/corner nodes
+// at |coord|=1 collapse with their opposite-face counterparts) so that the
+// connectivity analysis matches the actual stiffness assembly.
+function analyzeConnectivity(beams) {
+  if (!beams || beams.length === 0) return { components: 0, sizes: [] };
+  var EPS = 1e-4;
+  var nodeIdx = {};
+  var nNodes = 0;
+  function ckey(x, y, z) {
+    var cx = (Math.abs(Math.abs(x) - 1) < EPS) ? -1 : x;
+    var cy = (Math.abs(Math.abs(y) - 1) < EPS) ? -1 : y;
+    var cz = (Math.abs(Math.abs(z) - 1) < EPS) ? -1 : z;
+    return cx.toFixed(4) + ',' + cy.toFixed(4) + ',' + cz.toFixed(4);
+  }
+  function getIdx(x, y, z) {
+    var k = ckey(x, y, z);
+    if (k in nodeIdx) return nodeIdx[k];
+    nodeIdx[k] = nNodes++;
+    return nNodes - 1;
+  }
+  // Union-find
+  var parent = [];
+  function find(i) { while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i]; } return i; }
+  function union(a, b) { var ra = find(a), rb = find(b); if (ra !== rb) parent[ra] = rb; }
+  // First pass: register all canonical nodes
+  for (var i = 0; i < beams.length; i++) {
+    var b = beams[i];
+    var dx = b[3]-b[0], dy = b[4]-b[1], dz = b[5]-b[2];
+    if (dx*dx + dy*dy + dz*dz < 1e-12) continue;  // skip degenerate
+    getIdx(b[0], b[1], b[2]);
+    getIdx(b[3], b[4], b[5]);
+  }
+  for (var p = 0; p < nNodes; p++) parent.push(p);
+  // Second pass: union endpoints of each beam
+  for (var i2 = 0; i2 < beams.length; i2++) {
+    var b2 = beams[i2];
+    var dx2 = b2[3]-b2[0], dy2 = b2[4]-b2[1], dz2 = b2[5]-b2[2];
+    if (dx2*dx2 + dy2*dy2 + dz2*dz2 < 1e-12) continue;
+    union(getIdx(b2[0], b2[1], b2[2]), getIdx(b2[3], b2[4], b2[5]));
+  }
+  // Count distinct roots
+  var roots = {};
+  for (var n = 0; n < nNodes; n++) {
+    var r = find(n);
+    roots[r] = (roots[r] || 0) + 1;
+  }
+  var sizes = [];
+  for (var k in roots) sizes.push(roots[k]);
+  sizes.sort(function(a, b){ return b - a; });
+  return { components: sizes.length, sizes: sizes };
+}
+
+function homogenizeDSM(beams, E_s, nu_s, radius) {
+  if (!beams || beams.length === 0) return { valid: false, reason: 'no beams' };
+  // Apply intersection-splitting pre-pass: beams that cross at interior points
+  // are physically welded in the implicit-SDF cell that the mesher would build.
+  // Splitting inserts a vertex at each crossing so the structural solver sees
+  // the same connectivity the meshed cell has — otherwise authored beams that
+  // pass through one another show up as disconnected substructures even though
+  // the final geometry is one continuous piece.
+  beams = splitBeamsAtIntersections(beams);
+  // Quick connectivity gate: if the PBC-canonical beam graph has >1 component,
+  // the cell is necessarily a mechanism (components translate independently),
+  // and the full DSM solve will return a singular C. Bail early with a more
+  // specific reason so the UI can show a tailored message.
+  var conn = analyzeConnectivity(beams);
+  if (conn.components > 1) {
+    return { valid: false, reason: 'disconnected', components: conn.components, componentSizes: conn.sizes };
+  }
+  var EPS = 1e-4;
+  var V_cell = 8.0;  // local coords: cube spans [-1,+1], volume = 8
+  var G_s = E_s / (2 * (1 + nu_s));
+  var A_xs = Math.PI * radius * radius;
+  var I_xs = Math.PI * Math.pow(radius, 4) / 4;
+  var J_xs = Math.PI * Math.pow(radius, 4) / 2;
+
+  // 1. Build canonical node table
+  function canonOf(x, y, z) {
+    var cx = (Math.abs(Math.abs(x) - 1) < EPS) ? -1 : x;
+    var cy = (Math.abs(Math.abs(y) - 1) < EPS) ? -1 : y;
+    var cz = (Math.abs(Math.abs(z) - 1) < EPS) ? -1 : z;
+    return [cx, cy, cz];
+  }
+  function ckey(c) { return c[0].toFixed(4) + ',' + c[1].toFixed(4) + ',' + c[2].toFixed(4); }
+
+  var nodeIdx = {};
+  var nodes = [];
+  function getNodeIndex(x, y, z) {
+    var c = canonOf(x, y, z);
+    var k = ckey(c);
+    if (k in nodeIdx) return nodeIdx[k];
+    var idx = nodes.length;
+    nodeIdx[k] = idx;
+    nodes.push(c);
+    return idx;
+  }
+
+  // Pre-process beams: collect (ia, ib, deltaA, deltaB, R, kLocal, kGlobal)
+  var beamData = [];
+  var nDegen = 0;
+  for (var bi = 0; bi < beams.length; bi++) {
+    var b = beams[bi];
+    var dx = b[3]-b[0], dy = b[4]-b[1], dz = b[5]-b[2];
+    var L = Math.sqrt(dx*dx + dy*dy + dz*dz);
+    if (L < 1e-6) { nDegen++; continue; }
+    var ax = dx/L, ay = dy/L, az = dz/L;
+    var ia = getNodeIndex(b[0], b[1], b[2]);
+    var ib = getNodeIndex(b[3], b[4], b[5]);
+    var dA = [b[0] - nodes[ia][0], b[1] - nodes[ia][1], b[2] - nodes[ia][2]];
+    var dB = [b[3] - nodes[ib][0], b[4] - nodes[ib][1], b[5] - nodes[ib][2]];
+    var R = beamRotation(ax, ay, az);
+    var kLocal = beamLocalStiffness(L, E_s, G_s, A_xs, I_xs, J_xs);
+    var kGlobal = transformBeamStiffness(kLocal, R);
+    // Weight by 1/sharingFactor so per-cell contributions correspond to the physical
+    // per-unit-volume stiffness of the periodic array.
+    var w = 1.0 / beamSharingFactor(b);
+    if (w !== 1) {
+      for (var i = 0; i < 144; i++) kGlobal[i] *= w;
+    }
+    beamData.push({ ia: ia, ib: ib, dA: dA, dB: dB, kg: kGlobal });
+  }
+  var N = nodes.length;
+  if (N === 0) return { valid: false, reason: 'no valid beams' };
+  // N=1 is allowed: all nodes collapse to one PBC canonical node (e.g., simple cubic, tet).
+  // In this case nFree=0 and the fluctuation field is identically zero — C comes purely
+  // from the imposed-strain energy. The downstream code handles this correctly.
+
+  var nDof = 6 * N;
+
+  // 2. Assemble global K (nDof x nDof)
+  var K = new Array(nDof * nDof).fill(0);
+  for (var e = 0; e < beamData.length; e++) {
+    var bd = beamData[e];
+    var kg = bd.kg;
+    var dofMap = [
+      6*bd.ia, 6*bd.ia+1, 6*bd.ia+2, 6*bd.ia+3, 6*bd.ia+4, 6*bd.ia+5,
+      6*bd.ib, 6*bd.ib+1, 6*bd.ib+2, 6*bd.ib+3, 6*bd.ib+4, 6*bd.ib+5
+    ];
+    for (var i = 0; i < 12; i++) for (var j = 0; j < 12; j++) {
+      K[dofMap[i]*nDof + dofMap[j]] += kg[i*12 + j];
+    }
+  }
+
+  // 3. Build 6 load vectors f_eps_j and per-element u_imposed (saved for energy compute)
+  var fLoad = [];        // 6 arrays of length nDof
+  var uImposedPerElem = [];  // 6 × beamData.length, each is 12-vector
+  for (var j = 0; j < 6; j++) {
+    fLoad.push(new Array(nDof).fill(0));
+    var elemArr = [];
+    var eps = voigtStrainTensor(j);
+    for (var e = 0; e < beamData.length; e++) {
+      var bd = beamData[e];
+      // u_imposed_elem (12-vec): translations only, no rotations
+      var dA = bd.dA, dB = bd.dB;
+      var uA = [eps[0]*dA[0] + eps[1]*dA[1] + eps[2]*dA[2],
+                eps[3]*dA[0] + eps[4]*dA[1] + eps[5]*dA[2],
+                eps[6]*dA[0] + eps[7]*dA[1] + eps[8]*dA[2]];
+      var uB = [eps[0]*dB[0] + eps[1]*dB[1] + eps[2]*dB[2],
+                eps[3]*dB[0] + eps[4]*dB[1] + eps[5]*dB[2],
+                eps[6]*dB[0] + eps[7]*dB[1] + eps[8]*dB[2]];
+      var uImp = [uA[0],uA[1],uA[2], 0,0,0, uB[0],uB[1],uB[2], 0,0,0];
+      elemArr.push(uImp);
+      // f_elem = -kg @ uImp
+      var fElem = new Array(12).fill(0);
+      for (var i = 0; i < 12; i++) {
+        var s = 0;
+        for (var k = 0; k < 12; k++) s += bd.kg[i*12 + k] * uImp[k];
+        fElem[i] = -s;
+      }
+      // Assemble into fLoad[j]
+      var dofMap = [
+        6*bd.ia, 6*bd.ia+1, 6*bd.ia+2, 6*bd.ia+3, 6*bd.ia+4, 6*bd.ia+5,
+        6*bd.ib, 6*bd.ib+1, 6*bd.ib+2, 6*bd.ib+3, 6*bd.ib+4, 6*bd.ib+5
+      ];
+      for (var i = 0; i < 12; i++) fLoad[j][dofMap[i]] += fElem[i];
+    }
+    uImposedPerElem.push(elemArr);
+  }
+
+  // 4. Pin all 6 DOFs of node 0 to remove rigid body modes.
+  var nFree = nDof - 6;
+  var freeMap = [];   // free-index -> global DOF
+  var globalToFree = new Array(nDof).fill(-1);
+  for (var i = 6; i < nDof; i++) {
+    globalToFree[i] = freeMap.length;
+    freeMap.push(i);
+  }
+
+  // Build K_ff (nFree × nFree)
+  var Kff = new Array(nFree * nFree);
+  for (var i = 0; i < nFree; i++) {
+    var gi = freeMap[i];
+    for (var j = 0; j < nFree; j++) {
+      var gj = freeMap[j];
+      Kff[i*nFree + j] = K[gi*nDof + gj];
+    }
+  }
+
+  // Decompose Kff
+  var L = Kff;  // in-place
+  var ok = cholesky(L, nFree);
+  if (!ok) return { valid: false, reason: 'singular reduced stiffness (cell may be unstable: insufficient connectivity)' };
+
+  // 5. Solve for each unit strain case: K_ff u_canonical = f_load[j][free]
+  var uCanonical = [];   // 6 arrays of length nDof (with 0 at pinned DOFs)
+  for (var j = 0; j < 6; j++) {
+    var bf = new Array(nFree);
+    for (var i = 0; i < nFree; i++) bf[i] = fLoad[j][freeMap[i]];
+    var xf = choleskySolve(L, bf, nFree);
+    var uFull = new Array(nDof).fill(0);
+    for (var i = 0; i < nFree; i++) uFull[freeMap[i]] = xf[i];
+    uCanonical.push(uFull);
+  }
+
+  // 6. Compute strain energy: W_jk = (1/2) Σ_e (u_full_j_elem)^T K_e (u_full_k_elem)
+  // For C: C_jj = 2 W_jj / V; C_jk = (1/V) (u_full_j)^T K (u_full_k) where u_full = u_canonical + u_imposed_elem
+  // We compute the 6x6 symmetric matrix Wmat[j][k] = Σ_e (u_full_j_elem)^T K_e (u_full_k_elem)
+  var Wmat = new Array(36).fill(0);
+  for (var j = 0; j < 6; j++) {
+    for (var k = j; k < 6; k++) {
+      var totalEnergy = 0;
+      for (var e = 0; e < beamData.length; e++) {
+        var bd = beamData[e];
+        var dofMap = [
+          6*bd.ia, 6*bd.ia+1, 6*bd.ia+2, 6*bd.ia+3, 6*bd.ia+4, 6*bd.ia+5,
+          6*bd.ib, 6*bd.ib+1, 6*bd.ib+2, 6*bd.ib+3, 6*bd.ib+4, 6*bd.ib+5
+        ];
+        // u_full_elem_j = u_canonical[j][dofMap] + u_imposed_per_elem[j][e]
+        var uj = new Array(12), uk = new Array(12);
+        for (var i = 0; i < 12; i++) {
+          uj[i] = uCanonical[j][dofMap[i]] + uImposedPerElem[j][e][i];
+          uk[i] = uCanonical[k][dofMap[i]] + uImposedPerElem[k][e][i];
+        }
+        // u_j^T K_e u_k
+        for (var i = 0; i < 12; i++) {
+          var s = 0;
+          for (var m = 0; m < 12; m++) s += bd.kg[i*12 + m] * uk[m];
+          totalEnergy += uj[i] * s;
+        }
+      }
+      Wmat[j*6 + k] = totalEnergy;
+      Wmat[k*6 + j] = totalEnergy;
+    }
+  }
+  // C_jk = Wmat[j][k] / V (this is u_j^T K u_k / V which equals C[j,k] by linearity of u in eps)
+  var C = new Array(36);
+  for (var i = 0; i < 36; i++) C[i] = Wmat[i] / V_cell;
+
+  // 7. Engineering constants: invert C to get S = C^(-1) (compliance), then extract.
+  var S = invSymmetric6(C);
+  if (!S) return { valid: false, reason: 'C is not positive definite (cell may be a mechanism)' };
+
+  // E_i = 1/S_ii (i = 0..2 for axial); G_jk = 1/S_kk (k = 3..5)
+  var Ex = 1 / S[0*6 + 0];
+  var Ey = 1 / S[1*6 + 1];
+  var Ez = 1 / S[2*6 + 2];
+  var Gyz = 1 / S[3*6 + 3];
+  var Gxz = 1 / S[4*6 + 4];
+  var Gxy = 1 / S[5*6 + 5];
+  // Poisson ratios: ν_ij = -S_ji/S_ii (strain in j when stretched in i)
+  var nuxy = -S[1*6 + 0] / S[0*6 + 0];   // -ε_yy/ε_xx under σxx
+  var nuxz = -S[2*6 + 0] / S[0*6 + 0];
+  var nuyx = -S[0*6 + 1] / S[1*6 + 1];
+  var nuyz = -S[2*6 + 1] / S[1*6 + 1];
+  var nuzx = -S[0*6 + 2] / S[2*6 + 2];
+  var nuzy = -S[1*6 + 2] / S[2*6 + 2];
+  var Es = [Ex, Ey, Ez];
+  var anisotropy = Math.max(Ex, Ey, Ez) / Math.max(1e-12, Math.min(Ex, Ey, Ez));
+
+  return {
+    valid: true,
+    nDegen: nDegen,
+    C: C,
+    S: S,
+    Ex: Ex, Ey: Ey, Ez: Ez,
+    Gxy: Gxy, Gyz: Gyz, Gxz: Gxz,
+    nuxy: nuxy, nuxz: nuxz, nuyx: nuyx, nuyz: nuyz, nuzx: nuzx, nuzy: nuzy,
+    anisotropy: anisotropy,
+    nNodes: N
+  };
+}
+
+// Format a modulus value for compact display.
+// >= 1000 → "12.3 GPa"; >= 1 → "234 MPa"; smaller → "0.42 MPa"; near-zero or invalid → "—".
+function formatModulus(v) {
+  if (!isFinite(v) || v < 1e-3) return '—';
+  if (v >= 1000) return (v / 1000).toFixed(2) + ' GPa';
+  if (v >= 100) return v.toFixed(0) + ' MPa';
+  if (v >= 10) return v.toFixed(1) + ' MPa';
+  return v.toFixed(2) + ' MPa';
+}
+
+// Pick a single unit (MPa or GPa) for a group of moduli so all tiles in the group
+// display with the same unit — avoids the per-tile unit-switching that makes
+// values hard to compare at a glance.
+function chooseModulusUnit(values) {
+  var maxV = 0;
+  for (var i = 0; i < values.length; i++) {
+    var v = values[i];
+    if (isFinite(v) && v > maxV) maxV = v;
+  }
+  return maxV >= 1000 ? 'GPa' : 'MPa';
+}
+
+function formatInUnit(v, unit) {
+  if (!isFinite(v) || v < 1e-3) return '—';
+  if (unit === 'GPa') {
+    var g = v / 1000;
+    if (g >= 100) return g.toFixed(0) + ' GPa';
+    if (g >= 10) return g.toFixed(2) + ' GPa';
+    return g.toFixed(3) + ' GPa';
+  }
+  if (v >= 100) return v.toFixed(0) + ' MPa';
+  if (v >= 10) return v.toFixed(1) + ' MPa';
+  return v.toFixed(2) + ' MPa';
+}
+
+// ─── 3D math helpers (for stiffness surface widget) ─────────────────────────
+function _ssMat3Mul(A, B) {
+  var r = new Array(9);
+  for (var c = 0; c < 3; c++) for (var row = 0; row < 3; row++)
+    r[c*3 + row] = A[0*3+row]*B[c*3+0] + A[1*3+row]*B[c*3+1] + A[2*3+row]*B[c*3+2];
+  return r;
+}
+function _ssRotAA(ax, ay, az, angle) {
+  var c = Math.cos(angle), s = Math.sin(angle), t = 1 - c;
+  var l = Math.sqrt(ax*ax + ay*ay + az*az) || 1;
+  ax /= l; ay /= l; az /= l;
+  return [t*ax*ax+c, t*ax*ay+s*az, t*ax*az-s*ay,
+          t*ax*ay-s*az, t*ay*ay+c, t*ay*az+s*ax,
+          t*ax*az+s*ay, t*ay*az-s*ax, t*az*az+c];
+}
+function _ssOrtho(m) {
+  var x = [m[0],m[1],m[2]], y = [m[3],m[4],m[5]], z = [m[6],m[7],m[8]];
+  function dot(a,b){return a[0]*b[0]+a[1]*b[1]+a[2]*b[2];}
+  function scl(a,s){return [a[0]*s,a[1]*s,a[2]*s];}
+  function sub(a,b){return [a[0]-b[0],a[1]-b[1],a[2]-b[2]];}
+  function nrm(a){var l=Math.sqrt(dot(a,a))||1;return [a[0]/l,a[1]/l,a[2]/l];}
+  x = nrm(x);
+  y = nrm(sub(y, scl(x, dot(y,x))));
+  z = nrm(sub(sub(z, scl(x, dot(z,x))), scl(y, dot(z,y))));
+  return [x[0],x[1],x[2], y[0],y[1],y[2], z[0],z[1],z[2]];
+}
+
+// ─── Stiffness surface widget ──────────────────────────────────────────────
+// A small WebGL2 raymarcher of the implicit surface r = E(n)/Emax in spherical coords.
+// Adapted from F13LD.tpms's directional stiffness ellipsoid, generalized to full
+// anisotropic compliance (passes the 6x6 S matrix as a uniform array, not just S11/Gamma).
+// Auto-rotates; no mouse interaction.
+function StiffnessSurface(canvasId) {
+  this.canvasId = canvasId;
+  this.gl = null;
+  this.prog = null;
+  this.quadBuf = null;
+  this.uRes = this.uRot = this.uZoom = this.uS = this.uEmax = null;
+  this.rotMat = _ssMat3Mul(_ssRotAA(0,1,0,0.6), _ssRotAA(1,0,0,-0.3));
+  this.zoom = 2.6;
+  this.S = null;       // current 6x6 compliance, flat 36-array
+  this.Emax = 1;       // for normalization
+  this.haveData = false;
+  this.initialized = false;
+}
+
+StiffnessSurface.prototype.init = function() {
+  var cv = document.getElementById(this.canvasId);
+  if (!cv) return false;
+  // Use min(width,height) so pixel buffer is square — CSS aspect-ratio:1 isn't always
+  // respected immediately on a freshly-displayed panel, so we take the safer of the two.
+  var dim = Math.max(80, Math.min(cv.offsetWidth || 160, cv.offsetHeight || 160));
+  cv.width = Math.round(dim * (window.devicePixelRatio || 1));
+  cv.height = cv.width;
+  var gl = cv.getContext('webgl2');
+  if (!gl) { cv.style.display = 'none'; return false; }
+  this.gl = gl;
+  this.quadBuf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, this.quadBuf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+
+  var vsrc = '#version 300 es\nin vec2 p; void main(){ gl_Position = vec4(p, 0.0, 1.0); }';
+  var fsrc = [
+    '#version 300 es',
+    'precision highp float;',
+    'out vec4 fragColor;',
+    'uniform vec2 res;',
+    'uniform mat3 rot;',
+    'uniform float zoom;',
+    'uniform float Smat[36];',  // row-major 6x6 compliance
+    'uniform float Emax;',
+    // Edir: full anisotropic Young's modulus along n, 1/E = m^T S m
+    // where m = (n_x², n_y², n_z², n_y n_z, n_x n_z, n_x n_y), Voigt 0=xx,1=yy,2=zz,3=yz,4=xz,5=xy.
+    // Unrolled (NO dynamic array indexing) — some mobile GPU drivers miscompile loops over
+    // uniform arrays with two dynamic indices, which silently breaks the surface symmetry.
+    // 21 unique terms because S is symmetric: 6 diagonal + 15 off-diagonal × 2.
+    'float Edir(vec3 n) {',
+    '  float m0 = n.x*n.x, m1 = n.y*n.y, m2 = n.z*n.z;',
+    '  float m3 = n.y*n.z, m4 = n.x*n.z, m5 = n.x*n.y;',
+    '  float invE =',
+    '    Smat[ 0]*m0*m0 + Smat[ 7]*m1*m1 + Smat[14]*m2*m2 +',
+    '    Smat[21]*m3*m3 + Smat[28]*m4*m4 + Smat[35]*m5*m5 +',
+    '    2.0 * (',
+    '      Smat[ 1]*m0*m1 + Smat[ 2]*m0*m2 + Smat[ 3]*m0*m3 + Smat[ 4]*m0*m4 + Smat[ 5]*m0*m5 +',
+    '      Smat[ 8]*m1*m2 + Smat[ 9]*m1*m3 + Smat[10]*m1*m4 + Smat[11]*m1*m5 +',
+    '      Smat[15]*m2*m3 + Smat[16]*m2*m4 + Smat[17]*m2*m5 +',
+    '      Smat[22]*m3*m4 + Smat[23]*m3*m5 +',
+    '      Smat[29]*m4*m5',
+    '    );',
+    '  return 1.0 / max(abs(invE), 1e-9);',
+    '}',
+    'float implicit(vec3 P) {',
+    '  float r = length(P);',
+    '  if (r < 0.001) return -1.0;',
+    '  return r - Edir(P / r) / Emax;',
+    '}',
+    'vec3 nrm(vec3 P) {',
+    '  float e = 0.004;',
+    '  return normalize(vec3(',
+    '    implicit(P + vec3(e,0,0)) - implicit(P - vec3(e,0,0)),',
+    '    implicit(P + vec3(0,e,0)) - implicit(P - vec3(0,e,0)),',
+    '    implicit(P + vec3(0,0,e)) - implicit(P - vec3(0,0,e))',
+    '  ));',
+    '}',
+    'vec3 palette(float t) {',
+    '  vec3 a = vec3(0.5,0.5,0.5), b = vec3(0.5,0.5,0.5);',
+    '  vec3 c = vec3(1.0,1.0,1.0), d = vec3(0.0,0.33,0.67);',
+    '  return a + b * cos(6.28318 * (c*t + d));',
+    '}',
+    'void main() {',
+    '  vec2 uv = (gl_FragCoord.xy - res * 0.5) / min(res.x, res.y);',
+    '  vec3 ro = rot * vec3(0.0, 0.0, zoom);',
+    '  vec3 rd = normalize(rot * vec3(uv.x, uv.y, -1.6));',
+    '  vec3 bgCol = vec3(0.039, 0.047, 0.078);  // matches #0a0c14, the surrounding viz-card',
+    '  vec4 bg = vec4(bgCol, 1.0);',
+    '  // Bounding sphere intersection (radius 1.4 for headroom against anisotropy + edge tangents)',
+    '  float bR = 1.4;',
+    '  float b2 = dot(ro, rd), c2 = dot(ro, ro) - bR*bR;',
+    '  float disc = b2*b2 - c2;',
+    '  if (disc < 0.0) { fragColor = bg; return; }',
+    '  float sq = sqrt(disc);',
+    '  float tEn = max(-b2 - sq, 0.0), tEx = -b2 + sq;',
+    '  if (tEx < 0.0) { fragColor = bg; return; }',
+    '  float t = tEn, hit = -1.0, ss = 0.018;',
+    '  float prev = implicit(ro + rd * t);',
+    '  for (int i = 0; i < 280; i++) {',
+    '    t += ss;',
+    '    if (t > tEx) break;',
+    '    float g = implicit(ro + rd * t);',
+    '    if (prev * g < 0.0) { hit = t - ss * (g / (g - prev)); break; }',
+    '    prev = g;',
+    '  }',
+    '  if (hit < 0.0) { fragColor = bg; return; }',
+    '  vec3 pos = ro + rd * hit;',
+    '  vec3 n = nrm(pos);',
+    '  if (dot(n, -rd) < 0.0) n = -n;',
+    '  float Eval = Edir(normalize(pos));',
+    '  float Enorm = clamp(Eval / Emax, 0.0, 1.0);',
+    '  float dy = dot(n, vec3(0,1,0)), dz = dot(n, vec3(0,0,1));',
+    '  float hue = dy*dy*0.33 + dz*dz*0.67 + Enorm*0.15;',
+    '  vec3 iridBase = palette(hue);',
+    '  vec3 iridShift = palette(hue + 0.5);',
+    '  vec3 l1 = normalize(vec3(1.0, 1.8, 2.0));',
+    '  vec3 l2 = normalize(vec3(-0.8, -0.3, 0.6));',
+    '  float l3 = max(dot(n, normalize(vec3(-0.5,-1.0,-1.5))), 0.0) * 0.3;',
+    '  float diff = 0.35 + max(dot(n, l1), 0.0) * 0.7 + max(dot(n, l2), 0.0) * 0.25 + l3;',
+    '  float spec1 = pow(max(dot(reflect(-l1, n), -rd), 0.0), 120.0) * 1.5;',
+    '  float spec2 = pow(max(dot(reflect(-l1, n), -rd), 0.0), 20.0) * 0.4;',
+    '  float rim = pow(1.0 - max(dot(n, -rd), 0.0), 2.5) * 0.8;',
+    '  float fresnel = pow(1.0 - max(dot(n, -rd), 0.0), 3.0);',
+    '  vec3 col = mix(iridBase, iridShift, Enorm * 0.35) * diff;',
+    '  col += iridShift * fresnel * 0.6;',
+    '  col += vec3(spec1 + spec2);',
+    '  col += iridShift * rim * 0.45;',
+    '  col *= (0.7 + Enorm * 0.4);',
+    '  fragColor = vec4(clamp(col, 0.0, 1.0), 1.0);',
+    '}'
+  ].join('\n');
+
+  var vs = gl.createShader(gl.VERTEX_SHADER);
+  gl.shaderSource(vs, vsrc); gl.compileShader(vs);
+  if (!gl.getShaderParameter(vs, gl.COMPILE_STATUS)) {
+    console.error('SS vertex shader:', gl.getShaderInfoLog(vs));
+    return false;
+  }
+  var fs = gl.createShader(gl.FRAGMENT_SHADER);
+  gl.shaderSource(fs, fsrc); gl.compileShader(fs);
+  if (!gl.getShaderParameter(fs, gl.COMPILE_STATUS)) {
+    console.error('SS fragment shader:', gl.getShaderInfoLog(fs));
+    return false;
+  }
+  this.prog = gl.createProgram();
+  gl.attachShader(this.prog, vs); gl.attachShader(this.prog, fs);
+  gl.linkProgram(this.prog);
+  if (!gl.getProgramParameter(this.prog, gl.LINK_STATUS)) {
+    console.error('SS link:', gl.getProgramInfoLog(this.prog));
+    return false;
+  }
+  gl.useProgram(this.prog);
+  var loc = gl.getAttribLocation(this.prog, 'p');
+  gl.enableVertexAttribArray(loc);
+  gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+  this.uRes = gl.getUniformLocation(this.prog, 'res');
+  this.uRot = gl.getUniformLocation(this.prog, 'rot');
+  this.uZoom = gl.getUniformLocation(this.prog, 'zoom');
+  this.uS = gl.getUniformLocation(this.prog, 'Smat');
+  this.uEmax = gl.getUniformLocation(this.prog, 'Emax');
+  this.initialized = true;
+  return true;
+};
+
+// Update with new compliance matrix S (36-array, row-major) and Emax for normalization.
+StiffnessSurface.prototype.update = function(S, Emax) {
+  if (!this.initialized && !this.init()) return;
+  this.S = S;
+  this.Emax = Emax;
+  this.haveData = true;
+  // Adapt zoom based on anisotropy: highly anisotropic surfaces extend farther
+  // along their stiff direction, so we need to zoom out to keep them in frame.
+  // Emax is the long axis radius (= 1 in normalized coords), so a base zoom of 2.8 fits
+  // an isotropic sphere comfortably. Anisotropy stretches it ~Emax/Emin × further.
+  this.zoom = 3.6;
+};
+
+StiffnessSurface.prototype.tick = function(dt) {
+  if (!this.initialized || !this.haveData) return;
+  // Slow auto-rotate; ~14°/sec — slow enough to study the shape, fast enough to see all sides.
+  this.rotMat = _ssMat3Mul(_ssRotAA(0, 1, 0, dt * 0.25), this.rotMat);
+  this.rotMat = _ssOrtho(this.rotMat);
+  var gl = this.gl;
+  var cv = document.getElementById(this.canvasId);
+  if (!cv) return;
+  // Re-sync canvas size in case panel resized; use min(w,h) for square pixel buffer
+  var dim = Math.max(80, Math.min(cv.offsetWidth || 160, cv.offsetHeight || 160));
+  var dpr = window.devicePixelRatio || 1;
+  var pxW = Math.round(dim * dpr);
+  if (cv.width !== pxW) { cv.width = pxW; cv.height = pxW; }
+  gl.viewport(0, 0, cv.width, cv.height);
+  gl.useProgram(this.prog);
+  gl.bindBuffer(gl.ARRAY_BUFFER, this.quadBuf);
+  var loc = gl.getAttribLocation(this.prog, 'p');
+  gl.enableVertexAttribArray(loc);
+  gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+  gl.uniform2f(this.uRes, cv.width, cv.height);
+  gl.uniformMatrix3fv(this.uRot, false, new Float32Array(this.rotMat));
+  gl.uniform1f(this.uZoom, this.zoom);
+  gl.uniform1fv(this.uS, this.S);
+  gl.uniform1f(this.uEmax, this.Emax);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+};
+
+StiffnessSurface.prototype.clear = function() {
+  this.haveData = false;
+  if (this.gl) {
+    var gl = this.gl;
+    var cv = document.getElementById(this.canvasId);
+    if (cv) {
+      gl.viewport(0, 0, cv.width, cv.height);
+      gl.clearColor(0.039, 0.047, 0.078, 1.0);  // matches #0a0c14, the viz-card bg
+      gl.clear(gl.COLOR_BUFFER_BIT);
+    }
+  }
+};
+
+// Singletons for the two panels
+var libStiffSurf = null;
+var bldStiffSurf = null;
+
+function _ssTickAll(dt) {
+  if (libStiffSurf) libStiffSurf.tick(dt);
+  if (bldStiffSurf) bldStiffSurf.tick(dt);
+}
+
+// Compute the directional Young's modulus E(n) = 1 / (m^T S m) where
+// m = (n_x², n_y², n_z², n_y n_z, n_x n_z, n_x n_y) — full anisotropic, Voigt.
+function edirJS(S, nx, ny, nz) {
+  var m = [nx*nx, ny*ny, nz*nz, ny*nz, nx*nz, nx*ny];
+  var inv = 0;
+  for (var i = 0; i < 6; i++) {
+    var row = 0;
+    for (var j = 0; j < 6; j++) row += S[i*6 + j] * m[j];
+    inv += m[i] * row;
+  }
+  return 1 / Math.max(Math.abs(inv), 1e-12);
+}
+
+// Sample E(n) over a Fibonacci-distributed sphere to find the actual max directional
+// Young's modulus. Used for proper Emax so the surface r = E(n)/Emax fits within the
+// raymarcher's unit-bound bounding sphere.
+function maxEdir(S) {
+  var N = 256;  // sample count — fast (microseconds), accurate enough
+  var maxE = 0;
+  var golden = Math.PI * (3 - Math.sqrt(5));
+  for (var i = 0; i < N; i++) {
+    var z = 1 - (2 * i) / (N - 1);
+    var r = Math.sqrt(Math.max(0, 1 - z*z));
+    var phi = i * golden;
+    var nx = Math.cos(phi) * r;
+    var ny = Math.sin(phi) * r;
+    var nz = z;
+    var E = edirJS(S, nx, ny, nz);
+    if (E > maxE) maxE = E;
+  }
+  return maxE;
+}
+
+// Compute Zener anisotropy A = 2 C44 / (C11 - C12) for cubic-symmetric materials.
+// For non-cubic, we approximate using avg shear and avg longitudinal-coupling.
+// Returns {A, label, color}.
+function zenerAnisotropy(C) {
+  // C is row-major 36-array (6x6)
+  var C11 = (C[0] + C[7] + C[14]) / 3;
+  var C12 = (C[1] + C[2] + C[8]) / 3;  // S_12, S_13, S_23 averaged
+  var C44 = (C[21] + C[28] + C[35]) / 3;  // S_44, S_55, S_66 averaged
+  var A = (Math.abs(C11 - C12) > 1e-12) ? 2 * C44 / (C11 - C12) : 1;
+  var color, label;
+  if (A < 0.7) { color = '#e879f9'; label = 'strongly axial'; }
+  else if (A < 0.9) { color = '#e879f9'; label = 'axial dominant'; }
+  else if (A < 1.1) { color = '#888'; label = 'near-isotropic'; }
+  else if (A < 1.5) { color = '#22d3ee'; label = 'diagonal dominant'; }
+  else { color = '#aaff00'; label = 'strongly diagonal'; }
+  return { A: A, label: label, color: color };
+}
+
+// Show or hide the "no stiffness surface" overlay with a context-appropriate message.
+// `mode` is one of: 'hide', 'empty' (no beams), 'mechanism' (homog failed), or 'error'.
+// `prefix` is the DOM id prefix — 'm' for Library, 'bld' for Builder.
+function setStiffEmpty(prefix, mode, reason, isBuilder) {
+  var box = document.getElementById(prefix + 'StiffEmpty');
+  if (!box) return;
+  if (mode === 'hide') { box.classList.remove('show'); return; }
+  var head = document.getElementById(prefix + 'StiffEmptyHead');
+  var body = document.getElementById(prefix + 'StiffEmptyBody');
+  if (mode === 'empty') {
+    head.textContent = 'empty cell';
+    body.innerHTML = isBuilder
+      ? 'Click two snap points to add a beam. The directional stiffness surface will appear once enough beams form a stiff network.'
+      : 'No beams in this cell.';
+  } else if (mode === 'disconnected') {
+    // `reason` here is the component count (an integer passed by the caller).
+    var n = reason || 2;
+    head.textContent = 'disconnected';
+    body.innerHTML = 'This cell has <strong>' + n + ' substructures</strong> that don\u2019t share any beams (after periodic merging). Each can move independently \u2014 a rigid-body mechanism \u2014 so directional E(n) is undefined.<br><br>'
+      + (isBuilder
+          ? 'Add beams that bridge the substructures (e.g. corner-to-face-center, face-to-body-center).'
+          : 'This library cell is intentionally minimal as a reference. Pair it with a connecting topology in your design.');
+  } else if (mode === 'mechanism') {
+    head.textContent = 'not stiff';
+    body.innerHTML = 'This cell is a <strong>mechanism</strong> \u2014 at least one deformation mode has zero stiffness, so directional E(n) is undefined.<br><br>'
+      + (isBuilder
+          ? 'Add beams that triangulate the unbraced direction (e.g. diagonals across faces, struts between disconnected nodes).'
+          : 'This library cell is intentionally minimal as a reference. Pair it with a triangulating topology in your design.');
+  } else {
+    head.textContent = 'no result';
+    body.textContent = reason || 'Homogenization could not be computed.';
+  }
+  box.classList.add('show');
+}
+
+function updateMetrics() {
+  var p = getParams();
+  var m = computeMetrics(p);
+  document.getElementById('mBeams').textContent = m.beamCount;
+  document.getElementById('mDensity').textContent = m.densityPct.toFixed(1);
+  document.getElementById('mLength').textContent = m.sumLength.toFixed(1);
+  // Phase 1 homogenization metrics
+  var beams = BEAM_CATALOGS[p.topology] || [];
+  var h = computeHomogenization(beams);
+  document.getElementById('mNodes').textContent = h.nRaw;
+  document.getElementById('mPbcNodes').textContent = h.nPbc;
+  var mEl = document.getElementById('mMaxwell');
+  mEl.textContent = (h.maxwell >= 0 ? '+' : '') + h.maxwell;
+  mEl.style.color = h.maxwell >= 0 ? '' : '#ff6b9a';
+  // Phase 2: DSM-PBC engineering constants
+  var ids = ['mEx','mEy','mEz','mGyz','mGxz','mGxy','mAniso','mNuxy','mNuxz'];
+  if (beams.length === 0) {
+    ids.forEach(function(id){ var el = document.getElementById(id); if (el) el.textContent = '—'; });
+    document.getElementById('mHomogStatus').textContent = 'No beams.';
+    if (libStiffSurf) libStiffSurf.clear();
+    setStiffEmpty('m', 'empty', null, false);
+    return;
+  }
+  try {
+    var d = homogenizeDSM(beams, materialEs, materialNu, p.radius);
+    if (d.valid) {
+      var modUnit = chooseModulusUnit([d.Ex, d.Ey, d.Ez, d.Gxy, d.Gyz, d.Gxz]);
+      document.getElementById('mEx').textContent = formatInUnit(d.Ex, modUnit);
+      document.getElementById('mEy').textContent = formatInUnit(d.Ey, modUnit);
+      document.getElementById('mEz').textContent = formatInUnit(d.Ez, modUnit);
+      document.getElementById('mGyz').textContent = formatInUnit(d.Gyz, modUnit);
+      document.getElementById('mGxz').textContent = formatInUnit(d.Gxz, modUnit);
+      document.getElementById('mGxy').textContent = formatInUnit(d.Gxy, modUnit);
+      document.getElementById('mAniso').textContent = isFinite(d.anisotropy) ? d.anisotropy.toFixed(2) : '—';
+      document.getElementById('mNuxy').textContent = isFinite(d.nuxy) ? d.nuxy.toFixed(3) : '—';
+      document.getElementById('mNuxz').textContent = isFinite(d.nuxz) ? d.nuxz.toFixed(3) : '—';
+      // Zener anisotropy bar
+      var z = zenerAnisotropy(d.C);
+      document.getElementById('mZenerVal').textContent = z.A.toFixed(3);
+      document.getElementById('mZenerVal').style.color = z.color;
+      document.getElementById('mZenerLabel').textContent = z.label;
+      document.getElementById('mZenerLabel').style.color = z.color;
+      var Aclamp = Math.min(Math.max(z.A, 0.3), 2.5);
+      document.getElementById('mZenerMarker').style.left = ((Aclamp - 0.3) / (2.5 - 0.3) * 100).toFixed(1) + '%';
+      // Stiffness surface update (lazy init)
+      if (!libStiffSurf) libStiffSurf = new StiffnessSurface('stiffSurfCv');
+      var Emax = maxEdir(d.S) * 1.15;  // sample over unit sphere → true max directional E. 1.05 = small headroom so surface fits inside r=1 bound.
+      libStiffSurf.update(d.S, Emax);
+      setStiffEmpty('m', 'hide', null, false);
+      document.getElementById('mHomogStatus').innerHTML = 'Sharing-weighted DSM-PBC, frame elements (axial + bending + torsion). Aniso = max(E)/min(E); 1.00 = isotropic. <strong style="color:#888">Validation:</strong> within 65–100% of literature (e.g., Octet ~67% of DFA ρ̄/9). Use as engineering guidance; cross-check against FEA for design-critical work.';
+    } else {
+      ids.forEach(function(id){ var el = document.getElementById(id); if (el) el.textContent = '—'; });
+      document.getElementById('mZenerVal').textContent = '—';
+      document.getElementById('mZenerLabel').textContent = '—';
+      document.getElementById('mZenerMarker').style.left = '40%';
+      if (libStiffSurf) libStiffSurf.clear();
+      if (d.reason === 'disconnected') {
+        setStiffEmpty('m', 'disconnected', d.components, false);
+        document.getElementById('mHomogStatus').textContent = 'Disconnected: ' + d.components + ' substructures (mechanism).';
+      } else {
+        setStiffEmpty('m', 'mechanism', d.reason, false);
+        document.getElementById('mHomogStatus').textContent = 'Cell is not stiff: ' + (d.reason || 'invalid');
+      }
+    }
+  } catch (e) {
+    ids.forEach(function(id){ var el = document.getElementById(id); if (el) el.textContent = '—'; });
+    if (libStiffSurf) libStiffSurf.clear();
+    setStiffEmpty('m', 'error', e.message, false);
+    document.getElementById('mHomogStatus').textContent = 'Homogenization error: ' + e.message;
+  }
+}
+
+// Material settings (used in Phase 2)
+var materialEs = 113000;  // MPa, Ti-6Al-4V default
+var materialNu = 0.34;
+function onMatChange() {
+  var eEl = document.getElementById('matE');
+  var nEl = document.getElementById('matNu');
+  if (eEl) materialEs = parseFloat(eEl.value) || 113000;
+  if (nEl) materialNu = parseFloat(nEl.value) || 0.34;
+  // Recompute homogenization for whichever tab is active
+  if (currentTab === 'builder' && typeof Builder !== 'undefined' && Builder.active) {
+    Builder.updateMetrics();
+  } else {
+    updateMetrics();
+  }
+}
+
+function updateTopoDescription() {
+  var topo = document.getElementById('topology').value;
+  document.getElementById('topoDesc').textContent = TOPO_DESC[topo] || '';
+}
+
+// ─── Raymarcher class ──────────────────────────────────────────────────────
+function Raymarcher(canvas) {
+  this.canvas = canvas;
+  var vp = document.getElementById('cw');
+  canvas.width = Math.max(vp ? vp.clientWidth : 600, 1);
+  canvas.height = Math.max(vp ? vp.clientHeight : 400, 1);
+  this.gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
+  if (!this.gl) {
+    document.getElementById('status').textContent = 'WebGL not supported';
+    return;
+  }
+  var gl = this.gl;
+  this.isWebGL2 = (gl.getParameter && gl.getParameter(gl.VERSION).indexOf('WebGL 2') >= 0);
+  this._khr = gl.getExtension('KHR_parallel_shader_compile') || null;
+  this.prog = null;
+  this._pendingProg = null;
+  this._compiling = false;
+  this.uRes = null; this.uRot = null; this.uZoom = null;
+  this.uBeamA = null; this.uBeamB = null; this.uBeamCount = null;
+  this.uRadius = null; this.uCell = null; this.uTile = null;
+  this.camZoom = 4.5;
+  this.autoRot = true;
+  this.running = false;
+  this._loopRunning = false;
+  this._dirty = true;
+  this.currentParams = null;
+  this.beamA = new Float32Array(MAX_BEAMS * 3);
+  this.beamB = new Float32Array(MAX_BEAMS * 3);
+  this.beamCount = 0;
+  this.rotMat = this._mat3Mul(this._rotAA(0,1,0,0.7), this._rotAA(1,0,0,0.5));
+  this.quadBuf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, this.quadBuf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+  this._setupInteraction();
+}
+
+Raymarcher.prototype._mkShader = function(type, src) {
+  var gl = this.gl;
+  var s = gl.createShader(type);
+  gl.shaderSource(s, src);
+  gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+    console.error('Shader compile error:', gl.getShaderInfoLog(s));
+    console.error('Source:\n' + src);
+    document.getElementById('status').textContent = 'Shader compile error';
+    return null;
+  }
+  return s;
+};
+
+Raymarcher.prototype._buildShader = function(params) {
+  var steps = params.quality === 'ultra' ? '512'
+            : params.quality === 'high'  ? '256'
+            : params.quality === 'medium'? '160'
+            : '96';
+  // WebGL 2 fragment shader (GLSL ES 3.00).
+  return [
+    '#version 300 es',
+    'precision highp float;',
+    'out vec4 fragColor;',
+    'uniform vec2 res;',
+    'uniform mat3 rot;',
+    'uniform float zoom;',
+    'uniform vec3 beamA[' + MAX_BEAMS + '];',
+    'uniform vec3 beamB[' + MAX_BEAMS + '];',
+    'uniform int beamCount;',
+    'uniform float uRadius;',
+    'uniform float uTile;',
+    'const float H = 1.0;',  // single-cell half-extent in shader units (cube spans [-H,+H])
+    'const float CELL = 2.0 * H;',
+    // Capsule SDF
+    'float sdCapsule(vec3 p, vec3 a, vec3 b, float r) {',
+    '  vec3 pa = p - a; vec3 ba = b - a;',
+    '  float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);',
+    '  return length(pa - ba * h) - r;',
+    '}',
+    // Single-cell capsule union: minimum distance to all active beams given a query point
+    // expressed in cell-local coordinates [-H, +H].
+    'float capsuleUnion(vec3 p) {',
+    '  float d = 1e6;',
+    '  for (int i = 0; i < ' + MAX_BEAMS + '; i++) {',
+    '    if (i >= beamCount) break;',
+    '    float di = sdCapsule(p, beamA[i], beamB[i], uRadius);',
+    '    d = min(d, di);',
+    '  }',
+    '  return d;',
+    '}',
+    // Combined SDF: when tiling, also union with neighbor cells so beams ending at cube
+    // boundaries continue cleanly across cell faces. We sample the SDF in the wrapped cell
+    // plus up to 26 neighbors (6 face + 12 edge + 8 corner). Each neighbor at world offset
+    // `+offset` contributes its beams to fragments in the current cell at `q - offset`
+    // expressed in our cell's local coords.
+    //
+    // We only pay the neighbor cost when uTile > 1 AND the sample point is within
+    // (uRadius + small epsilon) of the corresponding face/edge/corner — otherwise the
+    // neighbor capsules are too far to reach this fragment.
+    'float sceneSDF(vec3 p) {',
+    '  vec3 q = (uTile > 1.5) ? mod(p + H, CELL) - H : p;',
+    '  float d = capsuleUnion(q);',
+    '  if (uTile > 1.5) {',
+    '    float halo = uRadius + 0.02;',
+    '    bool nx = q.x >  H - halo, px = q.x < -H + halo;',
+    '    bool ny = q.y >  H - halo, py = q.y < -H + halo;',
+    '    bool nz = q.z >  H - halo, pz = q.z < -H + halo;',
+    // Face neighbors (6)
+    '    if (nx) d = min(d, capsuleUnion(q - vec3( CELL, 0.0, 0.0)));',
+    '    if (px) d = min(d, capsuleUnion(q - vec3(-CELL, 0.0, 0.0)));',
+    '    if (ny) d = min(d, capsuleUnion(q - vec3(0.0,  CELL, 0.0)));',
+    '    if (py) d = min(d, capsuleUnion(q - vec3(0.0, -CELL, 0.0)));',
+    '    if (nz) d = min(d, capsuleUnion(q - vec3(0.0, 0.0,  CELL)));',
+    '    if (pz) d = min(d, capsuleUnion(q - vec3(0.0, 0.0, -CELL)));',
+    // Edge neighbors (12)
+    '    if (nx && ny) d = min(d, capsuleUnion(q - vec3( CELL,  CELL, 0.0)));',
+    '    if (nx && py) d = min(d, capsuleUnion(q - vec3( CELL, -CELL, 0.0)));',
+    '    if (px && ny) d = min(d, capsuleUnion(q - vec3(-CELL,  CELL, 0.0)));',
+    '    if (px && py) d = min(d, capsuleUnion(q - vec3(-CELL, -CELL, 0.0)));',
+    '    if (nx && nz) d = min(d, capsuleUnion(q - vec3( CELL, 0.0,  CELL)));',
+    '    if (nx && pz) d = min(d, capsuleUnion(q - vec3( CELL, 0.0, -CELL)));',
+    '    if (px && nz) d = min(d, capsuleUnion(q - vec3(-CELL, 0.0,  CELL)));',
+    '    if (px && pz) d = min(d, capsuleUnion(q - vec3(-CELL, 0.0, -CELL)));',
+    '    if (ny && nz) d = min(d, capsuleUnion(q - vec3(0.0,  CELL,  CELL)));',
+    '    if (ny && pz) d = min(d, capsuleUnion(q - vec3(0.0,  CELL, -CELL)));',
+    '    if (py && nz) d = min(d, capsuleUnion(q - vec3(0.0, -CELL,  CELL)));',
+    '    if (py && pz) d = min(d, capsuleUnion(q - vec3(0.0, -CELL, -CELL)));',
+    // Corner neighbors (8) — needed for body-diagonal-only topologies
+    '    if (nx && ny && nz) d = min(d, capsuleUnion(q - vec3( CELL,  CELL,  CELL)));',
+    '    if (nx && ny && pz) d = min(d, capsuleUnion(q - vec3( CELL,  CELL, -CELL)));',
+    '    if (nx && py && nz) d = min(d, capsuleUnion(q - vec3( CELL, -CELL,  CELL)));',
+    '    if (nx && py && pz) d = min(d, capsuleUnion(q - vec3( CELL, -CELL, -CELL)));',
+    '    if (px && ny && nz) d = min(d, capsuleUnion(q - vec3(-CELL,  CELL,  CELL)));',
+    '    if (px && ny && pz) d = min(d, capsuleUnion(q - vec3(-CELL,  CELL, -CELL)));',
+    '    if (px && py && nz) d = min(d, capsuleUnion(q - vec3(-CELL, -CELL,  CELL)));',
+    '    if (px && py && pz) d = min(d, capsuleUnion(q - vec3(-CELL, -CELL, -CELL)));',
+    '  }',
+    '  return d;',
+    '}',
+    'vec3 nrm(vec3 p) {',
+    '  float e = 0.0015;',
+    '  return normalize(vec3(',
+    '    sceneSDF(p + vec3(e,0,0)) - sceneSDF(p - vec3(e,0,0)),',
+    '    sceneSDF(p + vec3(0,e,0)) - sceneSDF(p - vec3(0,e,0)),',
+    '    sceneSDF(p + vec3(0,0,e)) - sceneSDF(p - vec3(0,0,e))',
+    '  ));',
+    '}',
+    'vec3 palette(float t) {',
+    '  vec3 a = vec3(0.55, 0.57, 0.42);',
+    '  vec3 b = vec3(0.43, 0.42, 0.30);',
+    '  vec3 c = vec3(1.0, 1.0, 1.0);',
+    '  vec3 d = vec3(0.02, 0.0, 0.05);',
+    '  return clamp(a + b * cos(6.28318 * (c * t + d)), 0.0, 1.0);',
+    '}',
+    'void main() {',
+    '  vec2 uv = (gl_FragCoord.xy - res * 0.5) / min(res.x, res.y);',
+    '  vec3 ro = rot * vec3(0.0, 0.0, zoom);',
+    '  vec3 rd = normalize(rot * vec3(uv.x, uv.y, -1.6));',
+    '  float r = clamp(length(uv) * 1.1, 0.0, 1.0);',
+    '  vec3 bgCol = mix(vec3(0.07, 0.07, 0.07), vec3(0.03, 0.03, 0.03), r * r);',
+    // Bounding-box ray intersection — expanded to enclose all uTile^3 cells.
+    '  float bound = H * uTile;',
+    '  vec3 iv = vec3(1.0) / rd;',
+    '  vec3 tb = (-vec3(bound) - ro) * iv;',
+    '  vec3 tt = (vec3(bound) - ro) * iv;',
+    '  vec3 tmi = min(tb, tt); vec3 tma = max(tb, tt);',
+    '  float tEn = max(max(tmi.x, tmi.y), tmi.z);',
+    '  float tEx = min(min(tma.x, tma.y), tma.z);',
+    '  if (tEn > tEx || tEx < 0.0) { fragColor = vec4(bgCol, 1.0); return; }',
+    '  float t = max(tEn, 0.001);',
+    '  bool hit = false;',
+    '  for (int i = 0; i < ' + steps + '; i++) {',
+    '    if (t > tEx) break;',
+    '    vec3 p = ro + rd * t;',
+    '    float d = sceneSDF(p);',
+    '    if (d < 0.0008) { hit = true; break; }',
+    // When tiling, the modulo-wrapped SDF overestimates true distance — the nearest beam
+    // could be in a neighbor cell at distance < d. Cap the step size to keep the trace safe.
+    '    float maxStep = uTile > 1.5 ? 0.6 : 100.0;',
+    '    t += clamp(d * 0.85, 0.001, maxStep);',
+    '  }',
+    '  if (!hit) { fragColor = vec4(bgCol, 1.0); return; }',
+    '  vec3 pos = ro + rd * t;',
+    '  vec3 n = nrm(pos);',
+    '  if (dot(n, -rd) < 0.0) n = -n;',
+    // Iridescent shading consistent with TPMS / Grain
+    '  float dy = dot(n, vec3(0.0, 1.0, 0.0));',
+    '  float dz = dot(n, vec3(0.0, 0.0, 1.0));',
+    '  float hue = dy * dy * 0.33 + dz * dz * 0.67;',
+    '  vec3 iridBase = palette(hue);',
+    '  vec3 l1 = normalize(vec3(1.0, 1.8, 2.0));',
+    '  vec3 l2 = normalize(vec3(-0.8, -0.3, 0.6));',
+    '  float l3fill = max(dot(n, normalize(vec3(-0.5,-1.0,-1.5))), 0.0) * 0.3;',
+    '  float diff = 0.35 + max(dot(n, l1), 0.0) * 0.7 + max(dot(n, l2), 0.0) * 0.25 + l3fill;',
+    '  float spec1 = pow(max(dot(reflect(-l1, n), -rd), 0.0), 120.0) * 0.7;',
+    '  float spec2 = pow(max(dot(reflect(-l1, n), -rd), 0.0),  20.0) * 0.2;',
+    '  float rim = pow(1.0 - max(dot(n, -rd), 0.0), 2.5) * 0.8;',
+    '  vec3 green = vec3(0.784, 0.961, 0.259);',
+    '  vec3 col = iridBase * diff + vec3(1.0) * spec1 + green * spec2 * 0.6 + green * rim * 0.45;',
+    '  col = mix(bgCol, col, exp(-t * 0.010));',
+    '  fragColor = vec4(clamp(col, 0.0, 1.0), 1.0);',
+    '}'
+  ].join('\n');
+};
+
+Raymarcher.prototype._submitShader = function(params) {
+  var gl = this.gl;
+  var vs = '#version 300 es\nin vec2 p; void main(){ gl_Position = vec4(p, 0.0, 1.0); }';
+  var fs = this._buildShader(params);
+  var vs_ = this._mkShader(gl.VERTEX_SHADER, vs);
+  var fs_ = this._mkShader(gl.FRAGMENT_SHADER, fs);
+  if (!vs_ || !fs_) return;
+  var prg = gl.createProgram();
+  gl.attachShader(prg, vs_);
+  gl.attachShader(prg, fs_);
+  gl.linkProgram(prg);
+  gl.deleteShader(vs_);
+  gl.deleteShader(fs_);
+  if (this._pendingProg) gl.deleteProgram(this._pendingProg);
+  this._pendingProg = prg;
+  this._compiling = true;
+  setShaderStatus(true);
+};
+
+Raymarcher.prototype._activateProgram = function(prg) {
+  var gl = this.gl;
+  if (this.prog && this.prog !== prg) gl.deleteProgram(this.prog);
+  this.prog = prg;
+  gl.useProgram(prg);
+  gl.bindBuffer(gl.ARRAY_BUFFER, this.quadBuf);
+  var loc = gl.getAttribLocation(prg, 'p');
+  gl.enableVertexAttribArray(loc);
+  gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+  this.uRes       = gl.getUniformLocation(prg, 'res');
+  this.uRot       = gl.getUniformLocation(prg, 'rot');
+  this.uZoom      = gl.getUniformLocation(prg, 'zoom');
+  this.uBeamA     = gl.getUniformLocation(prg, 'beamA');
+  this.uBeamB     = gl.getUniformLocation(prg, 'beamB');
+  this.uBeamCount = gl.getUniformLocation(prg, 'beamCount');
+  this.uRadius    = gl.getUniformLocation(prg, 'uRadius');
+  this.uTile      = gl.getUniformLocation(prg, 'uTile');
+};
+
+Raymarcher.prototype._uploadCatalog = function(topology) {
+  var beams = BEAM_CATALOGS[topology];
+  if (!beams) { console.error('Unknown topology:', topology); return; }
+  this._uploadBeams(beams);
+};
+
+// Upload a raw beam list (used by Builder mode). Each beam = [ax,ay,az,bx,by,bz].
+Raymarcher.prototype._uploadBeams = function(beams) {
+  var n = Math.min(beams.length, MAX_BEAMS);
+  for (var i = 0; i < n; i++) {
+    this.beamA[i*3+0] = beams[i][0];
+    this.beamA[i*3+1] = beams[i][1];
+    this.beamA[i*3+2] = beams[i][2];
+    this.beamB[i*3+0] = beams[i][3];
+    this.beamB[i*3+1] = beams[i][4];
+    this.beamB[i*3+2] = beams[i][5];
+  }
+  for (var i = n; i < MAX_BEAMS; i++) {
+    this.beamA[i*3+0] = this.beamA[i*3+1] = this.beamA[i*3+2] = 0;
+    this.beamB[i*3+0] = this.beamB[i*3+1] = this.beamB[i*3+2] = 0;
+  }
+  this.beamCount = n;
+  this._dirty = true;
+};
+
+Raymarcher.prototype.setParams = function(params) {
+  if (!this.gl) return;
+  var prev = this.currentParams;
+  var needRebuild = !prev || (!this.prog && !this._compiling) || params.quality !== prev.quality;
+  // Topology change: just re-upload uniforms, no recompile
+  if (!prev || params.topology !== prev.topology) {
+    this._uploadCatalog(params.topology);
+  }
+  this.currentParams = params;
+  if (needRebuild) {
+    if (this.running) this._submitShader(params);
+    else this._rebuildPending = true;
+  }
+  this._dirty = true;
+  if (!this._loopRunning) this._startLoop();
+};
+
+// Builder-mode alternative: pass raw beam list (no catalog lookup). Re-uploads and
+// triggers shader rebuild only if quality changed (not on every beam edit).
+Raymarcher.prototype.setBuilderParams = function(beams, params) {
+  if (!this.gl) return;
+  this._uploadBeams(beams);
+  var prev = this.currentParams;
+  var needRebuild = !prev || (!this.prog && !this._compiling) || params.quality !== prev.quality;
+  this.currentParams = params;
+  if (needRebuild) {
+    if (this.running) this._submitShader(params);
+    else this._rebuildPending = true;
+  }
+  this._dirty = true;
+  if (!this._loopRunning) this._startLoop();
+};
+
+Raymarcher.prototype._rotAA = function(ax, ay, az, angle) {
+  var c = Math.cos(angle), s = Math.sin(angle), t = 1 - c;
+  var l = Math.sqrt(ax*ax + ay*ay + az*az) || 1;
+  ax /= l; ay /= l; az /= l;
+  return [
+    t*ax*ax + c,    t*ax*ay + s*az, t*ax*az - s*ay,
+    t*ax*ay - s*az, t*ay*ay + c,    t*ay*az + s*ax,
+    t*ax*az + s*ay, t*ay*az - s*ax, t*az*az + c
+  ];
+};
+
+Raymarcher.prototype._mat3Mul = function(A, B) {
+  var r = new Array(9);
+  for (var c = 0; c < 3; c++)
+    for (var row = 0; row < 3; row++)
+      r[c*3+row] = A[0*3+row]*B[c*3+0] + A[1*3+row]*B[c*3+1] + A[2*3+row]*B[c*3+2];
+  return r;
+};
+
+Raymarcher.prototype._orthonorm = function(m) {
+  function dot(a, b) { return a[0]*b[0]+a[1]*b[1]+a[2]*b[2]; }
+  function scl(a, s) { return [a[0]*s, a[1]*s, a[2]*s]; }
+  function sub(a, b) { return [a[0]-b[0], a[1]-b[1], a[2]-b[2]]; }
+  function nrm(a) { var l = Math.sqrt(dot(a,a)) || 1; return [a[0]/l, a[1]/l, a[2]/l]; }
+  var x = [m[0],m[1],m[2]], y = [m[3],m[4],m[5]], z = [m[6],m[7],m[8]];
+  x = nrm(x);
+  y = nrm(sub(y, scl(x, dot(y, x))));
+  z = nrm(sub(sub(z, scl(x, dot(z, x))), scl(y, dot(z, y))));
+  return [x[0],x[1],x[2], y[0],y[1],y[2], z[0],z[1],z[2]];
+};
+
+Raymarcher.prototype._applyDelta = function(dx, dy) {
+  if (Math.abs(dx) > 0.001) {
+    var ux = this.rotMat[3], uy = this.rotMat[4], uz = this.rotMat[5];
+    this.rotMat = this._mat3Mul(this._rotAA(ux, uy, uz, -dx * 0.007), this.rotMat);
+    this._dirty = true;
+  }
+  if (Math.abs(dy) > 0.001) {
+    var rx = this.rotMat[0], ry = this.rotMat[1], rz = this.rotMat[2];
+    this.rotMat = this._mat3Mul(this._rotAA(rx, ry, rz, -dy * 0.007), this.rotMat);
+    this._dirty = true;
+  }
+};
+
+Raymarcher.prototype._setupInteraction = function() {
+  var self = this, drag = false, lx = 0, ly = 0;
+  // Pinch state
+  var pinching = false;
+  var pinchStartDist = 0;
+  var pinchStartZoom = 0;
+  // Click-vs-drag state
+  var pressDownTime = 0;
+  var pressStartX = 0, pressStartY = 0;
+  var movedDuringPress = false;
+  var DRAG_PX = 5;       // movement threshold to count as drag (mouse)
+  var DRAG_PX_TOUCH = 12; // movement threshold (touch — finger wobble)
+  var DRAG_MS = 180;     // hold-time threshold to count as drag
+
+  function builderActive() {
+    return typeof Builder !== 'undefined' && Builder.active;
+  }
+
+  this.canvas.onmousedown = function(e) {
+    drag = true;
+    lx = e.clientX; ly = e.clientY;
+    pressStartX = e.clientX; pressStartY = e.clientY;
+    pressDownTime = Date.now();
+    movedDuringPress = false;
+    self.autoRot = false;
+  };
+  // Suppress browser context menu so users can rotate freely with the right
+  // mouse button without triggering "save image / inspect" popups.
+  this.canvas.oncontextmenu = function(e) { e.preventDefault(); return false; };
+  window.addEventListener('mouseup', function(e) {
+    // Only the left button (button === 0) counts as a Builder click. Right-button
+    // releases after a rotate-drag would otherwise unarm the current snap point
+    // and feel like the cell is "rejecting" the user's selection.
+    if (drag && !movedDuringPress && (Date.now() - pressDownTime) < DRAG_MS && e.button === 0) {
+      // True click — delegate to builder if active
+      if (builderActive()) {
+        var rect = self.canvas.getBoundingClientRect();
+        Builder.handleClick(e.clientX - rect.left, e.clientY - rect.top);
+      }
+    }
+    drag = false;
+  });
+  window.addEventListener('mousemove', function(e) {
+    if (drag) {
+      var dx = e.clientX - pressStartX, dy = e.clientY - pressStartY;
+      if (!movedDuringPress && Math.sqrt(dx*dx + dy*dy) > DRAG_PX) movedDuringPress = true;
+      if (movedDuringPress) {
+        self._applyDelta(e.clientX - lx, e.clientY - ly);
+        lx = e.clientX; ly = e.clientY;
+      }
+    } else {
+      // Hover: update builder hover target
+      if (builderActive()) {
+        var rect = self.canvas.getBoundingClientRect();
+        Builder.handleHover(e.clientX - rect.left, e.clientY - rect.top);
+      }
+    }
+  });
+  window.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && builderActive()) Builder.cancelArmed();
+  });
+
+  function distBetweenTouches(e) {
+    var dx = e.touches[0].clientX - e.touches[1].clientX;
+    var dy = e.touches[0].clientY - e.touches[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  this.canvas.addEventListener('touchstart', function(e) {
+    self.autoRot = false;
+    if (e.touches.length === 2) {
+      pinching = true;
+      drag = false;
+      pinchStartDist = distBetweenTouches(e);
+      pinchStartZoom = self.camZoom;
+    } else if (e.touches.length === 1) {
+      drag = true;
+      lx = e.touches[0].clientX;
+      ly = e.touches[0].clientY;
+      pressStartX = lx; pressStartY = ly;
+      pressDownTime = Date.now();
+      movedDuringPress = false;
+    }
+    e.preventDefault();
+  }, { passive: false });
+
+  this.canvas.addEventListener('touchmove', function(e) {
+    if (pinching && e.touches.length === 2) {
+      var d = distBetweenTouches(e);
+      if (pinchStartDist > 0) {
+        var ratio = pinchStartDist / d;
+        self.camZoom = Math.max(2.5, Math.min(40, pinchStartZoom * ratio));
+        self._dirty = true;
+      }
+    } else if (drag && e.touches.length === 1) {
+      var dx = e.touches[0].clientX - pressStartX;
+      var dy = e.touches[0].clientY - pressStartY;
+      if (!movedDuringPress && Math.sqrt(dx*dx + dy*dy) > DRAG_PX_TOUCH) movedDuringPress = true;
+      if (movedDuringPress) {
+        self._applyDelta(e.touches[0].clientX - lx, e.touches[0].clientY - ly);
+        lx = e.touches[0].clientX;
+        ly = e.touches[0].clientY;
+      }
+    }
+    e.preventDefault();
+  }, { passive: false });
+
+  this.canvas.addEventListener('touchend', function(e) {
+    if (e.touches.length === 0 && drag && !movedDuringPress && (Date.now() - pressDownTime) < DRAG_MS) {
+      if (builderActive()) {
+        var rect = self.canvas.getBoundingClientRect();
+        Builder.handleClick(pressStartX - rect.left, pressStartY - rect.top);
+      }
+    }
+    if (e.touches.length < 2) pinching = false;
+    if (e.touches.length === 0) drag = false;
+    if (e.touches.length === 1 && !drag) {
+      drag = true;
+      lx = e.touches[0].clientX;
+      ly = e.touches[0].clientY;
+      pressStartX = lx; pressStartY = ly;
+      pressDownTime = Date.now();
+      movedDuringPress = false;
+    }
+  });
+
+  this.canvas.addEventListener('wheel', function(e) {
+    self.camZoom = Math.max(2.5, Math.min(40, self.camZoom + e.deltaY * 0.012));
+    self._dirty = true;
+    e.preventDefault();
+  }, { passive: false });
+};
+
+Raymarcher.prototype.render = function() {
+  var gl = this.gl;
+  if (!gl) return;
+  if (this._compiling && this._pendingProg) {
+    var ready = true;
+    if (this._khr) ready = gl.getProgramParameter(this._pendingProg, this._khr.COMPLETION_STATUS_KHR);
+    if (ready) {
+      if (gl.getProgramParameter(this._pendingProg, gl.LINK_STATUS)) {
+        this._activateProgram(this._pendingProg);
+        setShaderStatus(false);
+        document.getElementById('status').textContent = 'Ready';
+      } else {
+        console.error('Shader link failed:', gl.getProgramInfoLog(this._pendingProg));
+        gl.deleteProgram(this._pendingProg);
+        setShaderStatus(false);
+        document.getElementById('status').textContent = 'Shader error';
+      }
+      this._pendingProg = null;
+      this._compiling = false;
+      this._dirty = true;
+    }
+  }
+  if (!this.prog) return;
+  var cssW = this.canvas.clientWidth, cssH = this.canvas.clientHeight;
+  if (cssW === 0 || cssH === 0) return;
+  var dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+  var w = Math.round(cssW * dpr), h = Math.round(cssH * dpr);
+  if (this.canvas.width !== w || this.canvas.height !== h) {
+    this.canvas.width = w; this.canvas.height = h;
+  }
+  gl.viewport(0, 0, w, h);
+  gl.useProgram(this.prog);
+  gl.uniform2f(this.uRes, w, h);
+  gl.uniformMatrix3fv(this.uRot, false, new Float32Array(this.rotMat));
+  gl.uniform1f(this.uZoom, this.camZoom);
+  if (this.currentParams) {
+    gl.uniform1f(this.uRadius, this.currentParams.radius);
+    gl.uniform1f(this.uTile, this.currentParams.tile || 1);
+  }
+  gl.uniform3fv(this.uBeamA, this.beamA);
+  gl.uniform3fv(this.uBeamB, this.beamB);
+  gl.uniform1i(this.uBeamCount, this.beamCount);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  drawAxisGizmo(this.rotMat, this.canvas.clientWidth, this.canvas.clientHeight, this.camZoom);
+  this._dirty = false;
+};
+
+Raymarcher.prototype._startLoop = function() {
+  var self = this;
+  self._loopRunning = true;
+  var lastTs = 0;
+  function loop(ts) {
+    var dt = Math.min((ts - lastTs) / 1000, 0.05);
+    lastTs = ts;
+    if (self.autoRot) {
+      self._applyDelta(dt * 50, 0);
+      self._dirty = true;
+    }
+    // Builder armed-endpoint pulse needs continuous redraws — render() resets
+    // _dirty at the end of each frame, so we must re-arm it here every frame.
+    if (Builder.active && Builder.armed) self._dirty = true;
+    if (self._dirty || self._compiling) {
+      self.rotMat = self._orthonorm(self.rotMat);
+      self.render();
+    }
+    // Stiffness surface widgets tick independently — they auto-rotate continuously.
+    _ssTickAll(dt);
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+};
+
+// ─── Overlay drawing (axis gizmo + builder overlays when active) ──────────
+// Returns the projection function and ctx so callers (Builder picker) can use them.
+var lastProject = null;  // populated each frame; used by Builder picking math
+
+function drawAxisGizmo(rotMat, canvasW, canvasH, camZoom) {
+  var cv = document.getElementById('axisCanvas');
+  if (!cv) return;
+  var dpr = Math.min(window.devicePixelRatio || 1, 2);
+  cv.width = Math.round(canvasW * dpr);
+  cv.height = Math.round(canvasH * dpr);
+  var ctx = cv.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, canvasW, canvasH);
+  var H = 1.0;
+  var cx = rotMat[6], cy = rotMat[7], cz = rotMat[8];
+  function proj(p) {
+    var tx = rotMat[0]*p[0] + rotMat[1]*p[1] + rotMat[2]*p[2];
+    var ty = rotMat[3]*p[0] + rotMat[4]*p[1] + rotMat[5]*p[2];
+    var tz = rotMat[6]*p[0] + rotMat[7]*p[1] + rotMat[8]*p[2];
+    var pcz = tz - camZoom;
+    if (pcz > -0.1) return null;
+    var s = Math.min(canvasW, canvasH);
+    return [canvasW/2 + (-1.6*tx/pcz)*s, canvasH/2 - (-1.6*ty/pcz)*s, pcz];
+  }
+  // Cache for picker
+  lastProject = { proj: proj, w: canvasW, h: canvasH };
+
+  // ─── Builder overlay (drawn UNDER gizmo so labels stay on top) ───
+  if (typeof Builder !== 'undefined' && Builder.active) {
+    // Cube wireframe: 12 edges
+    var corners = [];
+    for (var i = 0; i < 8; i++) corners.push([(i&1)?H:-H,(i&2)?H:-H,(i&4)?H:-H]);
+    var cubeEdges = [
+      [0,1],[2,3],[4,5],[6,7], [0,2],[1,3],[4,6],[5,7], [0,4],[1,5],[2,6],[3,7]
+    ];
+    ctx.strokeStyle = 'rgba(120,140,160,0.25)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (var e = 0; e < cubeEdges.length; e++) {
+      var pa = proj(corners[cubeEdges[e][0]]);
+      var pb = proj(corners[cubeEdges[e][1]]);
+      if (!pa || !pb) continue;
+      ctx.moveTo(pa[0], pa[1]);
+      ctx.lineTo(pb[0], pb[1]);
+    }
+    ctx.stroke();
+
+    // Red preview overlay for the beam being hovered in remove mode. Covers the
+    // full symmetry orbit since clicking removes all symmetric copies, not just
+    // the one under the cursor.
+    if (Builder.mode === 'remove' && Builder.hoverBeamIdx !== null && Builder.beams[Builder.hoverBeamIdx]) {
+      var hb = Builder.beams[Builder.hoverBeamIdx];
+      var rmOrbit = Builder.computeOrbit([hb[0], hb[1], hb[2]], [hb[3], hb[4], hb[5]]);
+      // Outer wide stroke (low alpha) for halo, inner thinner stroke for the line itself
+      ctx.lineCap = 'round';
+      ctx.strokeStyle = 'rgba(255,107,154,0.35)';
+      ctx.lineWidth = 7;
+      ctx.beginPath();
+      for (var ro = 0; ro < rmOrbit.length; ro++) {
+        var ra = proj([rmOrbit[ro][0], rmOrbit[ro][1], rmOrbit[ro][2]]);
+        var rb = proj([rmOrbit[ro][3], rmOrbit[ro][4], rmOrbit[ro][5]]);
+        if (!ra || !rb) continue;
+        ctx.moveTo(ra[0], ra[1]); ctx.lineTo(rb[0], rb[1]);
+      }
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,107,154,0.95)';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      for (var ro2 = 0; ro2 < rmOrbit.length; ro2++) {
+        var ra2 = proj([rmOrbit[ro2][0], rmOrbit[ro2][1], rmOrbit[ro2][2]]);
+        var rb2 = proj([rmOrbit[ro2][3], rmOrbit[ro2][4], rmOrbit[ro2][5]]);
+        if (!ra2 || !rb2) continue;
+        ctx.moveTo(ra2[0], ra2[1]); ctx.lineTo(rb2[0], rb2[1]);
+      }
+      ctx.stroke();
+    }
+
+    // Ghost beam preview: from armed endpoint to hover target (and symmetry images)
+    if (Builder.armed && Builder.hoverPt && Builder.showGhost && Builder.mode === 'add') {
+      var ghosts = Builder.computeOrbit(Builder.armed, Builder.hoverPt);
+      ctx.strokeStyle = 'rgba(200,245,66,0.40)';
+      ctx.lineWidth = 2.5;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      for (var g = 0; g < ghosts.length; g++) {
+        var ga = proj([ghosts[g][0], ghosts[g][1], ghosts[g][2]]);
+        var gb = proj([ghosts[g][3], ghosts[g][4], ghosts[g][5]]);
+        if (!ga || !gb) continue;
+        ctx.moveTo(ga[0], ga[1]);
+        ctx.lineTo(gb[0], gb[1]);
+      }
+      ctx.stroke();
+    }
+
+    // Snap points
+    var snaps = Builder.snapPoints();
+    var t = (Date.now() % 1400) / 1400;  // pulse phase (0..1, 1.4s cycle)
+    var pulseSin = 0.5 + 0.5 * Math.sin(t * Math.PI * 2);  // 0..1 smooth
+    var pulse = 0.6 + 0.4 * pulseSin;
+    for (var s = 0; s < snaps.length; s++) {
+      var sp = snaps[s];
+      var pp = proj(sp);
+      if (!pp) continue;
+      var depthFade = Math.max(0.5, Math.min(1.2, -2.0 / pp[2]));
+      var isArmed = Builder.armed && _samePt(Builder.armed, sp);
+      var isHover = Builder.hoverPt && _samePt(Builder.hoverPt, sp);
+      var isUsed = Builder.endpointInUse(sp);
+      var radius, color, alpha;
+      if (isArmed) {
+        // Outer glowing halo (large, low-alpha, breathes inversely)
+        var haloR = 12 + 4 * pulseSin;
+        var haloA = 0.15 + 0.20 * (1 - pulseSin);
+        var grad = ctx.createRadialGradient(pp[0], pp[1], 2, pp[0], pp[1], haloR);
+        grad.addColorStop(0, 'rgba(200,245,66,' + haloA.toFixed(2) + ')');
+        grad.addColorStop(1, 'rgba(200,245,66,0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(pp[0], pp[1], haloR, 0, Math.PI * 2);
+        ctx.fill();
+        // Inner core dot — also pulses in radius for more obvious motion
+        radius = 6.5 + 2.0 * pulseSin;
+        color = '200,245,66';
+        alpha = pulse;
+      } else if (isHover) {
+        radius = 6; color = '34,211,238'; alpha = 1.0;
+      } else if (isUsed) {
+        radius = 3; color = '200,245,66'; alpha = 0.55 * depthFade;
+      } else {
+        radius = 2.5; color = '180,200,160'; alpha = 0.30 * depthFade;
+      }
+      ctx.fillStyle = 'rgba(' + color + ',' + alpha.toFixed(2) + ')';
+      ctx.beginPath();
+      ctx.arc(pp[0], pp[1], radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Pulse animation is driven by the main RAF loop forcing _dirty=true while
+    // Builder.armed is set, so no extra trigger is needed here.
+  }
+
+  // ─── Axis gizmo (always last, on top) ───
+  var axes = [
+    { p: [0, H, -H], color: '#22d3ee', label: 'X', vis: Math.max(cy, -cz) },
+    { p: [-H, 0, -H], color: '#c8f542', label: 'Y', vis: Math.max(-cx, -cz) },
+    { p: [-H, H, 0], color: '#ff6b9a', label: 'Z', vis: Math.max(-cx, cy) }
+  ];
+  ctx.font = '500 11px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  for (var i = 0; i < axes.length; i++) {
+    var a = axes[i];
+    var pt = proj(a.p);
+    if (!pt) continue;
+    var alpha = Math.max(0, Math.min(1, a.vis * 1.5 + 0.4));
+    ctx.fillStyle = a.color;
+    ctx.globalAlpha = alpha;
+    ctx.fillText(a.label, pt[0], pt[1]);
+  }
+  ctx.globalAlpha = 1.0;
+}
+
+function _samePt(a, b) {
+  return Math.abs(a[0]-b[0]) < 1e-4 && Math.abs(a[1]-b[1]) < 1e-4 && Math.abs(a[2]-b[2]) < 1e-4;
+}
+
+// ─── UI handlers ──────────────────────────────────────────────────────────
+function onParamChange(input, valueId) {
+  var v = parseFloat(input.value);
+  var el = document.getElementById(valueId);
+  if (el) {
+    if (valueId === 'cellValue') el.textContent = v.toFixed(2);
+    else el.textContent = v.toFixed(3);
+  }
+  if (raymarcher) raymarcher.setParams(getParams());
+  updateMetrics();
+}
+
+function onTopologyChange() {
+  updateTopoDescription();
+  if (raymarcher) raymarcher.setParams(getParams());
+  updateMetrics();
+}
+
+function onTileChange(t) {
+  var prevTile = currentTile;
+  currentTile = t;
+  ['btnTile1','btnTile2','btnTile3'].forEach(function(id, i) {
+    var btn = document.getElementById(id);
+    if (btn) btn.classList.toggle('active', (i+1) === t);
+  });
+  // Scale camera zoom proportionally so the lattice keeps the same on-screen size
+  if (raymarcher) {
+    raymarcher.camZoom = Math.max(2.5, Math.min(40, raymarcher.camZoom * (t / prevTile)));
+    raymarcher.setParams(getParams());
+  }
+  updateMetrics();
+}
+
+function onQualityChange(q) {
+  currentQuality = q;
+  ['Low','Med','High','Ultra'].forEach(function(suffix, i) {
+    var lvl = ['low','medium','high','ultra'][i];
+    var btn = document.getElementById('btnQ' + suffix);
+    if (btn) btn.classList.toggle('active', lvl === q);
+  });
+  if (!raymarcher) return;
+  // When Builder is active, route through its refresh path so the custom beams
+  // are not overwritten by the Library tab's catalog cell.
+  if (typeof Builder !== 'undefined' && Builder.active) {
+    Builder.refresh();
+  } else {
+    raymarcher.setParams(getParams());
+  }
+}
+
+// Build a JSON-friendly block of the current homogenization result for a beam set.
+// Mirrors what the UI displays: material, raw/PBC node counts + Maxwell M, full 6x6 stiffness
+// and compliance, engineering constants (Ex/Ey/Ez/G/ν), Zener anisotropy, and Voigt convention.
+// Returns null if the cell does not homogenize (e.g. truly degenerate topology).
+function buildHomogJSON(beams, radius) {
+  if (!beams || beams.length === 0) return null;
+  var beamsAuthored = beams.length;
+  var beamsAnalyzed = splitBeamsAtIntersections(beams).length;  // post-split count for transparency
+  var d = null, h = null;
+  try {
+    d = homogenizeDSM(beams, materialEs, materialNu, radius);
+    h = computeHomogenization(beams);
+  } catch (e) { return { valid: false, reason: 'exception: ' + e.message }; }
+  if (!d) return null;
+  var out = {
+    method: 'DSM-PBC, sharing-weighted, frame elements (axial + bending + torsion)',
+    voigt_convention: '0=xx, 1=yy, 2=zz, 3=yz, 4=xz, 5=xy (engineering shear strain γ = 2ε)',
+    valid: !!d.valid,
+    material: { Es_MPa: materialEs, nu_s: materialNu },
+    // The analyzer applies an intersection-splitting pre-pass so it works on
+    // the welded geometry the mesher would produce. beams_authored is what the
+    // user/topology defined; beams_split is what was actually analyzed.
+    counts: {
+      beams_authored: beamsAuthored,
+      beams_analyzed: beamsAnalyzed,
+      nodes_raw: h ? h.nRaw : null,
+      nodes_pbc: h ? h.nPbc : null,
+      maxwell_M: h ? h.maxwell : null
+    }
+  };
+  if (!d.valid) { out.reason = d.reason || 'invalid'; return out; }
+  function r6(M){ var R=[]; for (var i=0;i<6;i++){ var row=[]; for (var j=0;j<6;j++) row.push(parseFloat(M[i*6+j].toPrecision(6))); R.push(row);} return R; }
+  var z = zenerAnisotropy(d.C);
+  var Emax = maxEdir(d.S);
+  out.stiffness_C_MPa = r6(d.C);
+  out.compliance_S_MPa_inv = r6(d.S);
+  out.engineering_constants_MPa = {
+    Ex: parseFloat(d.Ex.toPrecision(6)),
+    Ey: parseFloat(d.Ey.toPrecision(6)),
+    Ez: parseFloat(d.Ez.toPrecision(6)),
+    Gxy: parseFloat(d.Gxy.toPrecision(6)),
+    Gyz: parseFloat(d.Gyz.toPrecision(6)),
+    Gxz: parseFloat(d.Gxz.toPrecision(6))
+  };
+  out.poisson_ratios = {
+    nuxy: isFinite(d.nuxy) ? parseFloat(d.nuxy.toPrecision(5)) : null,
+    nuyz: isFinite(d.nuyz) ? parseFloat(d.nuyz.toPrecision(5)) : null,
+    nuxz: isFinite(d.nuxz) ? parseFloat(d.nuxz.toPrecision(5)) : null
+  };
+  out.anisotropy = {
+    axial_ratio: isFinite(d.anisotropy) ? parseFloat(d.anisotropy.toFixed(4)) : null,
+    zener_A: parseFloat(z.A.toFixed(4)),
+    zener_label: z.label,
+    E_max_MPa: parseFloat(Emax.toPrecision(6))
+  };
+  return out;
+}
+
+function buildExportJSON() {
+  var p = getParams();
+  var m = computeMetrics(p);
+  var beams = BEAM_CATALOGS[p.topology] || [];
+  return {
+    meta: { version: '0.2.1', tool: 'beam', timestamp: new Date().toISOString() },
+    topology: { name: p.topology, beam_count: m.beamCount },
+    geometry: { radius: p.radius, cell: p.cell },
+    metrics: {
+      relative_density_pct: parseFloat(m.densityPct.toFixed(2)),
+      total_beam_length_local: parseFloat(m.sumLength.toFixed(3))
+    },
+    // v0.2.1: emit beams[] for preset exports too, so F13LD.mesh can build the
+    // SDF without needing a duplicate of BEAM_CATALOGS. Format matches the
+    // beam-builder custom export: each beam is [ax,ay,az,bx,by,bz] in
+    // cell-local [-1,+1] coordinates.
+    beams: beams.map(function(b){ return b.slice(); }),
+    homogenization: buildHomogJSON(beams, p.radius)
+  };
+}
+
+// ─── Export: shared utilities and alternate formats ───────────────────────
+// Solve for 3D segment-segment intersection. Returns {t, s, point} if the two
+// segments meet (within `eps` of each other in 3D, with t,s ∈ [0,1]), else null.
+// Standard approach: solve the 2-unknown system t·d1 - s·d2 = Q0 - P0 for (t,s),
+// then verify the actual closest-points distance is below threshold. Coplanar
+// parallel segments return null (they don't have a well-defined crossing point).
+function segmentIntersect(b1, b2, eps) {
+  var P0 = [b1[0], b1[1], b1[2]], P1 = [b1[3], b1[4], b1[5]];
+  var Q0 = [b2[0], b2[1], b2[2]], Q1 = [b2[3], b2[4], b2[5]];
+  var d1 = [P1[0]-P0[0], P1[1]-P0[1], P1[2]-P0[2]];
+  var d2 = [Q1[0]-Q0[0], Q1[1]-Q0[1], Q1[2]-Q0[2]];
+  var r  = [P0[0]-Q0[0], P0[1]-Q0[1], P0[2]-Q0[2]];
+  function dot(a, b){ return a[0]*b[0] + a[1]*b[1] + a[2]*b[2]; }
+  var a = dot(d1, d1), c = dot(d2, d2), bb = dot(d1, d2), dd = dot(d1, r), ee = dot(d2, r);
+  var denom = a*c - bb*bb;
+  if (Math.abs(denom) < 1e-14) return null;  // parallel or degenerate
+  var t = (bb*ee - c*dd) / denom;
+  var s = (a*ee - bb*dd) / denom;
+  if (t < -1e-6 || t > 1 + 1e-6 || s < -1e-6 || s > 1 + 1e-6) return null;
+  // Closest points on each segment; if distance² > eps, segments are skew (no real crossing)
+  var p1x = P0[0] + t*d1[0], p1y = P0[1] + t*d1[1], p1z = P0[2] + t*d1[2];
+  var p2x = Q0[0] + s*d2[0], p2y = Q0[1] + s*d2[1], p2z = Q0[2] + s*d2[2];
+  var dx = p1x - p2x, dy = p1y - p2y, dz = p1z - p2z;
+  if (dx*dx + dy*dy + dz*dz > eps) return null;
+  // Snap intersection point to the midpoint of the two closest points
+  return { t: t, s: s, point: [(p1x + p2x) * 0.5, (p1y + p2y) * 0.5, (p1z + p2z) * 0.5] };
+}
+
+// Pairwise intersection scan. Records only INTERIOR crossings (excludes endpoint
+// contacts via T_EPS margin) so beams that already meet at shared vertices are
+// not artificially split. Returns { beamIndex: [{t, point}, ...] }.
+function findBeamIntersections(beams) {
+  var splits = {};
+  var T_EPS = 1e-6;
+  var DIST_EPS = 1e-9;
+  for (var i = 0; i < beams.length; i++) {
+    for (var j = i + 1; j < beams.length; j++) {
+      var hit = segmentIntersect(beams[i], beams[j], DIST_EPS);
+      if (!hit) continue;
+      if (hit.t > T_EPS && hit.t < 1 - T_EPS) {
+        if (!splits[i]) splits[i] = [];
+        splits[i].push({ t: hit.t, point: hit.point });
+      }
+      if (hit.s > T_EPS && hit.s < 1 - T_EPS) {
+        if (!splits[j]) splits[j] = [];
+        splits[j].push({ t: hit.s, point: hit.point });
+      }
+    }
+  }
+  return splits;
+}
+
+// Build a deduplicated node list from a beam list. F13LD beams are stored as
+// flat 6-element arrays [x1,y1,z1,x2,y2,z2] in the [-1,+1] cube. Returns
+// { nodes: [{id,x,y,z}], edges: [{id, n1, n2, length_local}] } in cell-local units.
+//
+// When `splitAtIntersections` is true, beams whose interiors cross are split at
+// the crossing point before node/edge tables are built. This adds intermediate
+// nodes at intersection locations (e.g. face centers for FCC face-X cells), so
+// downstream consumers see a topologically valid graph with explicit connectivity
+// at every beam meeting. Used for LTCX export to silence nTopology's
+// "intersecting beams without shared vertex" warning.
+// Apply intersection-splitting pre-pass to a flat beam list. For each pair of
+// beams whose interiors physically cross (without sharing a vertex), inserts a
+// new vertex at the crossing point and breaks each beam into sub-segments.
+// Returns a new flat beam list. Used by both LTCX export (graph correctness)
+// and homogenization (so the analysis matches the welded geometry of the
+// implicit-SDF cell that F13LD.mesh would produce).
+function splitBeamsAtIntersections(beams) {
+  var splits = findBeamIntersections(beams);
+  var out = [];
+  for (var b_i = 0; b_i < beams.length; b_i++) {
+    var b = beams[b_i];
+    var marks = splits[b_i];
+    if (!marks || marks.length === 0) {
+      out.push(b);
+      continue;
+    }
+    marks = marks.slice().sort(function(a, b){ return a.t - b.t; });
+    var ptsT = [0];
+    var ptsXYZ = [[b[0], b[1], b[2]]];
+    for (var mi = 0; mi < marks.length; mi++) {
+      if (marks[mi].t - ptsT[ptsT.length - 1] > 1e-6) {
+        ptsT.push(marks[mi].t);
+        ptsXYZ.push(marks[mi].point);
+      }
+    }
+    ptsT.push(1);
+    ptsXYZ.push([b[3], b[4], b[5]]);
+    for (var k = 0; k < ptsXYZ.length - 1; k++) {
+      var p = ptsXYZ[k], q = ptsXYZ[k + 1];
+      out.push([p[0], p[1], p[2], q[0], q[1], q[2]]);
+    }
+  }
+  return out;
+}
+
+function buildBeamGraph(beams, splitAtIntersections) {
+  var workingBeams = splitAtIntersections ? splitBeamsAtIntersections(beams) : beams;
+  var nodes = [];
+  var index = {};
+  function nodeId(x, y, z) {
+    var key = x.toFixed(6) + ',' + y.toFixed(6) + ',' + z.toFixed(6);
+    if (index.hasOwnProperty(key)) return index[key];
+    var id = nodes.length;
+    nodes.push({ id: id, x: x, y: y, z: z });
+    index[key] = id;
+    return id;
+  }
+  var edges = [];
+  for (var i = 0; i < workingBeams.length; i++) {
+    var wb = workingBeams[i];
+    var n1 = nodeId(wb[0], wb[1], wb[2]);
+    var n2 = nodeId(wb[3], wb[4], wb[5]);
+    if (n1 === n2) continue;  // skip degenerate
+    var dx2 = wb[3] - wb[0], dy2 = wb[4] - wb[1], dz2 = wb[5] - wb[2];
+    edges.push({ id: edges.length, n1: n1, n2: n2, length_local: Math.sqrt(dx2*dx2 + dy2*dy2 + dz2*dz2) });
+  }
+  return { nodes: nodes, edges: edges };
+}
+
+// Build an LTCX (nTopology lattice graph) XML string. Coordinates are scaled by
+// (cellSize/2) so F13LD's ±1 cube becomes ±cellSize/2 mm. Format matches the
+// schema used by nTopology Element / nTop: <graph units="mm" type="rnd"> →
+// <nodegroup>/<node id x y z/> → <beamgroup>/<beam id n1 n2/>. No radii are
+// emitted at the node/beam level — the consumer applies thickness on import.
+function buildExportLTCX(beams, cellSize, cellName) {
+  var graph = buildBeamGraph(beams, true);  // split intersecting beams for nTop graph validity
+  var s = cellSize * 0.5;  // F13LD coords ∈ [-1,+1] → mm coords ∈ [-cellSize/2, +cellSize/2]
+  var xml = '<?xml version="1.0" encoding="UTF-8"?>\r\n';
+  xml += '<!--Generated by F13LD.beam v0.2.1-->\r\n';
+  xml += '<graph id="0" name="' + escapeXmlAttr(cellName || '') + '" units="mm" type="rnd">\r\n';
+  xml += '    <nodegroup>\r\n';
+  for (var i = 0; i < graph.nodes.length; i++) {
+    var n = graph.nodes[i];
+    xml += '        <node id="' + n.id + '" x="' + (n.x * s) + '" y="' + (n.y * s) + '" z="' + (n.z * s) + '"/>\r\n';
+  }
+  xml += '    </nodegroup>\r\n';
+  xml += '    <beamgroup>\r\n';
+  for (var j = 0; j < graph.edges.length; j++) {
+    var e = graph.edges[j];
+    xml += '        <beam id="' + e.id + '" n1="' + e.n1 + '" n2="' + e.n2 + '"/>\r\n';
+  }
+  xml += '    </beamgroup>\r\n';
+  xml += '</graph>\r\n';
+  return xml;
+}
+
+function escapeXmlAttr(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// Build a pair of CSV strings (nodes, beams) as a graph edge list.
+// Coords are converted to mm via cellSize/2 like LTCX.
+function buildExportCSVPair(beams, cellSize) {
+  var graph = buildBeamGraph(beams);
+  var s = cellSize * 0.5;
+  var nodesCsv = 'id,x_mm,y_mm,z_mm\n';
+  for (var i = 0; i < graph.nodes.length; i++) {
+    var n = graph.nodes[i];
+    nodesCsv += n.id + ',' + (n.x * s) + ',' + (n.y * s) + ',' + (n.z * s) + '\n';
+  }
+  var beamsCsv = 'id,from_node,to_node,length_mm\n';
+  for (var j = 0; j < graph.edges.length; j++) {
+    var e = graph.edges[j];
+    beamsCsv += e.id + ',' + e.n1 + ',' + e.n2 + ',' + (e.length_local * s) + '\n';
+  }
+  return { nodes: nodesCsv, beams: beamsCsv };
+}
+
+// CRC-32 (IEEE 802.3 polynomial), used by ZIP file checksums.
+var _crc32Table = null;
+function _crc32(bytes) {
+  if (!_crc32Table) {
+    _crc32Table = new Uint32Array(256);
+    for (var i = 0; i < 256; i++) {
+      var c = i;
+      for (var k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+      _crc32Table[i] = c >>> 0;
+    }
+  }
+  var crc = 0xFFFFFFFF;
+  for (var n = 0; n < bytes.length; n++) crc = _crc32Table[(crc ^ bytes[n]) & 0xFF] ^ (crc >>> 8);
+  return (crc ^ 0xFFFFFFFF) >>> 0;
+}
+
+// Build a minimal ZIP archive (uncompressed STORED entries) from a list of
+// {name, data:Uint8Array}. Returns a Uint8Array. Supports any number of small
+// text files; suitable for our nodes.csv + beams.csv bundle. No compression.
+function buildZip(entries) {
+  function u16(n) { return [n & 0xFF, (n >>> 8) & 0xFF]; }
+  function u32(n) { return [n & 0xFF, (n >>> 8) & 0xFF, (n >>> 16) & 0xFF, (n >>> 24) & 0xFF]; }
+  var enc = new TextEncoder();
+  var totalParts = [];
+  var cdParts = [];
+  var offset = 0;
+  for (var i = 0; i < entries.length; i++) {
+    var ent = entries[i];
+    var nameBytes = enc.encode(ent.name);
+    var data = ent.data;
+    var crc = _crc32(data);
+    // Local file header (LFH): 30 bytes + name
+    var lfh = [].concat(
+      u32(0x04034b50),     // signature
+      u16(20),              // version needed
+      u16(0),               // flags
+      u16(0),               // method (0 = STORED)
+      u16(0),               // mod time (1980-01-01 00:00:00)
+      u16(0x0021),          // mod date
+      u32(crc),             // CRC-32
+      u32(data.length),     // compressed size
+      u32(data.length),     // uncompressed size
+      u16(nameBytes.length),
+      u16(0)                // extra length
+    );
+    totalParts.push(new Uint8Array(lfh));
+    totalParts.push(nameBytes);
+    totalParts.push(data);
+    // Central directory entry: 46 bytes + name
+    var cdh = [].concat(
+      u32(0x02014b50),     // signature
+      u16(20),              // version made by
+      u16(20),              // version needed
+      u16(0),               // flags
+      u16(0),               // method
+      u16(0),               // mod time
+      u16(0x0021),          // mod date
+      u32(crc),
+      u32(data.length),
+      u32(data.length),
+      u16(nameBytes.length),
+      u16(0),               // extra length
+      u16(0),               // comment length
+      u16(0),               // disk number
+      u16(0),               // internal attrs
+      u32(0),               // external attrs
+      u32(offset)           // local header offset
+    );
+    cdParts.push(new Uint8Array(cdh));
+    cdParts.push(nameBytes);
+    offset += 30 + nameBytes.length + data.length;
+  }
+  var cdStart = offset;
+  var cdSize = 0;
+  for (var c = 0; c < cdParts.length; c++) cdSize += cdParts[c].length;
+  // End of central directory
+  var eocd = [].concat(
+    u32(0x06054b50),
+    u16(0),                 // disk number
+    u16(0),                 // disk where CD starts
+    u16(entries.length),
+    u16(entries.length),
+    u32(cdSize),
+    u32(cdStart),
+    u16(0)                  // comment length
+  );
+  // Concatenate everything
+  var finalSize = 0;
+  for (var p = 0; p < totalParts.length; p++) finalSize += totalParts[p].length;
+  for (var q = 0; q < cdParts.length; q++) finalSize += cdParts[q].length;
+  finalSize += eocd.length;
+  var out = new Uint8Array(finalSize);
+  var pos = 0;
+  for (var r = 0; r < totalParts.length; r++) { out.set(totalParts[r], pos); pos += totalParts[r].length; }
+  for (var t = 0; t < cdParts.length; t++) { out.set(cdParts[t], pos); pos += cdParts[t].length; }
+  out.set(new Uint8Array(eocd), pos);
+  return out;
+}
+
+// Trigger a browser download of a Blob with the given filename.
+function downloadBlob(blob, filename) {
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// Briefly flash an export button green to confirm a successful download/copy.
+function flashExportButton(btnId, msg) {
+  var btn = document.getElementById(btnId);
+  if (!btn) return;
+  var orig = btn.textContent;
+  btn.textContent = msg || '\u2713';
+  btn.style.color = '#c8f542';
+  btn.style.borderColor = '#c8f542';
+  setTimeout(function() {
+    btn.textContent = orig;
+    btn.style.color = '#a896ff';
+    btn.style.borderColor = '#7c6ff7';
+  }, 1800);
+}
+
+function openInMesh() {
+  var data = buildExportJSON();
+  var encoded = encodeURIComponent(JSON.stringify(data));
+  window.open('https://mshomper.github.io/f13ld.mesh/?r=' + encoded, '_blank');
+}
+
+// ─── Library tab: three export handlers (JSON / LTCX / CSV+CSV zip) ───────
+function onExportJSON() {
+  var data = buildExportJSON();
+  var json = JSON.stringify(data, null, 2);
+  var ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+  downloadBlob(new Blob([json], { type: 'application/json' }), 'beam_' + data.topology.name + '_' + ts + '.json');
+  if (navigator.clipboard) navigator.clipboard.writeText(json).catch(function(){});
+  flashExportButton('exportBtn', 'Copied + downloaded \u2713');
+}
+
+function onExportLTCX() {
+  var p = getParams();
+  var beams = BEAM_CATALOGS[p.topology] || [];
+  var xml = buildExportLTCX(beams, p.cell, p.topology);
+  var ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+  downloadBlob(new Blob([xml], { type: 'application/xml' }), 'beam_' + p.topology + '_' + ts + '.ltcx');
+  flashExportButton('exportLtcxBtn', 'Downloaded \u2713');
+}
+
+function onExportCSV() {
+  var p = getParams();
+  var beams = BEAM_CATALOGS[p.topology] || [];
+  var csv = buildExportCSVPair(beams, p.cell);
+  var enc = new TextEncoder();
+  var zip = buildZip([
+    { name: 'nodes.csv', data: enc.encode(csv.nodes) },
+    { name: 'beams.csv', data: enc.encode(csv.beams) }
+  ]);
+  var ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+  downloadBlob(new Blob([zip], { type: 'application/zip' }), 'beam_' + p.topology + '_' + ts + '.zip');
+  flashExportButton('exportCsvBtn', 'Downloaded \u2713');
+}
+
+// ─── Tab switching ────────────────────────────────────────────────────────
+var currentTab = 'library';
+var sessionCustomCells = {};  // catalog of custom cells pushed from Builder this session
+
+function switchTab(tab) {
+  currentTab = tab;
+  document.getElementById('libraryPanel').style.display = (tab === 'library') ? 'block' : 'none';
+  document.getElementById('builderPanel').style.display = (tab === 'builder') ? 'block' : 'none';
+  document.getElementById('tabLibrary').classList.toggle('active', tab === 'library');
+  document.getElementById('tabBuilder').classList.toggle('active', tab === 'builder');
+  if (tab === 'library') {
+    Builder.active = false;
+    if (raymarcher) {
+      raymarcher.setParams(getParams());
+    }
+  } else {
+    Builder.active = true;
+    Builder.refresh();
+  }
+}
+
+function onEditCell() {
+  // Load current library topology into Builder as starting point
+  var topo = document.getElementById('topology').value;
+  var beams = sessionCustomCells[topo] ? sessionCustomCells[topo].beams : BEAM_CATALOGS[topo];
+  if (!beams) return;
+  Builder.loadBeams(beams.map(function(b){ return b.slice(); }));
+  Builder.cellName = (TOPO_DESC[topo] ? topo : 'Custom Cell');
+  document.getElementById('bldCellName').value = topo;
+  switchTab('builder');
+}
+
+// ─── Builder ──────────────────────────────────────────────────────────────
+var Builder = {
+  active: false,
+  beams: [],          // committed beam endpoints, each [ax,ay,az,bx,by,bz]
+  armed: null,        // first endpoint of the in-progress beam, or null
+  hoverPt: null,      // currently hovered snap point in 3D, or null
+  hoverBeamIdx: null, // beam index under cursor in remove mode (for red preview), or null
+  snapDensity: 'coarse',
+  symmetry: 'cubic',
+  mode: 'add',        // 'add' or 'remove'
+  showGhost: true,
+  radius: 0.10,
+  tile: 1,
+  cellName: 'Custom Cell',
+  history: [],        // undo stack: array of beam-list snapshots
+  redoStack: [],
+
+  // ─── State management ───────────────────────────────────────────────
+  pushHistory: function() {
+    this.history.push(JSON.stringify(this.beams));
+    if (this.history.length > 50) this.history.shift();
+    this.redoStack = [];
+  },
+  undo: function() {
+    if (this.history.length === 0) return;
+    this.redoStack.push(JSON.stringify(this.beams));
+    this.beams = JSON.parse(this.history.pop());
+    this.armed = null;
+    this.refresh();
+  },
+  redo: function() {
+    if (this.redoStack.length === 0) return;
+    this.history.push(JSON.stringify(this.beams));
+    this.beams = JSON.parse(this.redoStack.pop());
+    this.armed = null;
+    this.refresh();
+  },
+  clear: function() {
+    if (this.beams.length === 0) return;
+    this.pushHistory();
+    this.beams = [];
+    this.armed = null;
+    this.refresh();
+  },
+  loadBeams: function(beams) {
+    this.history = [];
+    this.redoStack = [];
+    this.beams = beams.map(function(b){ return b.slice(); });
+    this.armed = null;
+  },
+
+  // ─── Snap points ────────────────────────────────────────────────────
+  snapPoints: function() {
+    var pts = [];
+    // Coarse: 8 corners + 6 face centers + 1 body center = 15
+    for (var i = 0; i < 8; i++) pts.push([(i&1)?1:-1, (i&2)?1:-1, (i&4)?1:-1]);
+    pts.push([-1,0,0],[1,0,0],[0,-1,0],[0,1,0],[0,0,-1],[0,0,1]);
+    pts.push([0,0,0]);
+    if (this.snapDensity === 'coarse') return pts;
+
+    // Medium: + 12 edge midpoints = 27
+    pts.push([0,-1,-1],[0,1,-1],[0,-1,1],[0,1,1]);
+    pts.push([-1,0,-1],[1,0,-1],[-1,0,1],[1,0,1]);
+    pts.push([-1,-1,0],[1,-1,0],[-1,1,0],[1,1,0]);
+    if (this.snapDensity === 'medium') return pts;
+
+    // Fine: + 24 face quarter-points + 12 axial half-points + ... = 63
+    // Face quarter-points: on each face, the 4 points midway between center and edge midpoints
+    // For face at x=±1: points at (±1, ±0.5, 0) and (±1, 0, ±0.5)
+    var faces = [
+      {ax:0, val:-1, ax1:1, ax2:2}, {ax:0, val:1, ax1:1, ax2:2},
+      {ax:1, val:-1, ax1:0, ax2:2}, {ax:1, val:1, ax1:0, ax2:2},
+      {ax:2, val:-1, ax1:0, ax2:1}, {ax:2, val:1, ax1:0, ax2:1}
+    ];
+    for (var f = 0; f < faces.length; f++) {
+      for (var s1 = -1; s1 <= 1; s1 += 2) {
+        var p1 = [0,0,0]; p1[faces[f].ax] = faces[f].val; p1[faces[f].ax1] = s1*0.5; p1[faces[f].ax2] = 0;
+        pts.push(p1);
+        var p2 = [0,0,0]; p2[faces[f].ax] = faces[f].val; p2[faces[f].ax1] = 0; p2[faces[f].ax2] = s1*0.5;
+        pts.push(p2);
+      }
+    }
+    // Axial half-points: along each axis at ±0.5
+    pts.push([-0.5,0,0],[0.5,0,0],[0,-0.5,0],[0,0.5,0],[0,0,-0.5],[0,0,0.5]);
+    return pts;
+  },
+
+  // ─── Symmetry orbits ────────────────────────────────────────────────
+  // Returns list of beams [a,b] applied with the current symmetry group.
+  computeOrbit: function(a, b) {
+    var ops = this.symmetryOps();
+    var result = [];
+    var seen = new Set();
+    for (var i = 0; i < ops.length; i++) {
+      var aa = applyOp(ops[i], a);
+      var bb = applyOp(ops[i], b);
+      var k1 = canonKey(aa, bb);
+      var k2 = canonKey(bb, aa);
+      if (seen.has(k1) || seen.has(k2)) continue;
+      seen.add(k1);
+      result.push([aa[0],aa[1],aa[2],bb[0],bb[1],bb[2]]);
+    }
+    return result;
+  },
+
+  symmetryOps: function() {
+    switch (this.symmetry) {
+      case 'none': return [identity()];
+      case 'mirror_x': return [identity(), mirror(0)];
+      case 'mirror_y': return [identity(), mirror(1)];
+      case 'mirror_z': return [identity(), mirror(2)];
+      case 'mirror_xyz': return mirrorXYZ();
+      case 'cubic': return cubicRotations();
+      case 'octahedral': return octahedralFull();
+    }
+    return [identity()];
+  },
+
+  // ─── Beam ops ───────────────────────────────────────────────────────
+  endpointInUse: function(pt) {
+    for (var i = 0; i < this.beams.length; i++) {
+      if (_samePtRaw(this.beams[i][0], this.beams[i][1], this.beams[i][2], pt[0], pt[1], pt[2])) return true;
+      if (_samePtRaw(this.beams[i][3], this.beams[i][4], this.beams[i][5], pt[0], pt[1], pt[2])) return true;
+    }
+    return false;
+  },
+
+  beamExists: function(beam) {
+    for (var i = 0; i < this.beams.length; i++) {
+      var b = this.beams[i];
+      var same1 = _samePtRaw(b[0],b[1],b[2], beam[0],beam[1],beam[2]) && _samePtRaw(b[3],b[4],b[5], beam[3],beam[4],beam[5]);
+      var same2 = _samePtRaw(b[0],b[1],b[2], beam[3],beam[4],beam[5]) && _samePtRaw(b[3],b[4],b[5], beam[0],beam[1],beam[2]);
+      if (same1 || same2) return i;
+    }
+    return -1;
+  },
+
+  addBeams: function(beamList) {
+    var added = 0;
+    for (var i = 0; i < beamList.length; i++) {
+      var b = beamList[i];
+      // Skip degenerate beams (zero length)
+      if (_samePtRaw(b[0],b[1],b[2], b[3],b[4],b[5])) continue;
+      if (this.beamExists(b) === -1) {
+        if (this.beams.length >= MAX_BEAMS) break;
+        this.beams.push(b);
+        added++;
+      }
+    }
+    return added;
+  },
+
+  removeBeamAt: function(beam) {
+    var idx = this.beamExists(beam);
+    if (idx >= 0) {
+      this.beams.splice(idx, 1);
+      return true;
+    }
+    return false;
+  },
+
+  // ─── Picking ────────────────────────────────────────────────────────
+  pickSnap: function(screenX, screenY) {
+    if (!lastProject || !lastProject.proj) return null;
+    var snaps = this.snapPoints();
+    var best = null, bestDist = 22;  // px threshold
+    for (var i = 0; i < snaps.length; i++) {
+      var p = lastProject.proj(snaps[i]);
+      if (!p) continue;
+      var dx = p[0] - screenX, dy = p[1] - screenY;
+      var d = Math.sqrt(dx*dx + dy*dy);
+      if (d < bestDist) {
+        bestDist = d;
+        best = snaps[i];
+      }
+    }
+    return best;
+  },
+
+  pickBeam: function(screenX, screenY) {
+    if (!lastProject || !lastProject.proj) return -1;
+    // Find beam whose midpoint or endpoints project closest to the click
+    var bestIdx = -1, bestDist = 18;
+    for (var i = 0; i < this.beams.length; i++) {
+      var b = this.beams[i];
+      var pa = lastProject.proj([b[0],b[1],b[2]]);
+      var pb = lastProject.proj([b[3],b[4],b[5]]);
+      if (!pa || !pb) continue;
+      // Distance from click to line segment in screen space
+      var d = pointToSegment2D(screenX, screenY, pa[0], pa[1], pb[0], pb[1]);
+      if (d < bestDist) {
+        bestDist = d;
+        bestIdx = i;
+      }
+    }
+    return bestIdx;
+  },
+
+  // ─── Click and hover handlers ───────────────────────────────────────
+  handleHover: function(screenX, screenY) {
+    var pt = this.pickSnap(screenX, screenY);
+    var changed = (pt === null) !== (this.hoverPt === null) ||
+                  (pt && this.hoverPt && !_samePt(pt, this.hoverPt));
+    this.hoverPt = pt;
+    // In remove mode, also track which beam (if any) the cursor is over so the
+    // overlay can highlight it red as a deletion preview.
+    if (this.mode === 'remove') {
+      var idx = this.pickBeam(screenX, screenY);
+      if (idx !== this.hoverBeamIdx) { this.hoverBeamIdx = idx >= 0 ? idx : null; changed = true; }
+    } else if (this.hoverBeamIdx !== null) {
+      this.hoverBeamIdx = null;
+      changed = true;
+    }
+    if (raymarcher) raymarcher._dirty = true;
+  },
+
+  handleClick: function(screenX, screenY) {
+    if (this.mode === 'add') {
+      var pt = this.pickSnap(screenX, screenY);
+      if (!pt) {
+        // Missed click — disarm
+        this.armed = null;
+        this.updateStatus('Click a snap point to begin a beam.');
+        if (raymarcher) raymarcher._dirty = true;
+        return;
+      }
+      if (!this.armed) {
+        this.armed = pt;
+        this.updateStatus('Now click the second endpoint to place the beam.');
+      } else {
+        // Second click — commit the beam (and symmetry orbit)
+        if (_samePt(pt, this.armed)) {
+          // Same point — disarm
+          this.armed = null;
+          this.updateStatus('Cancelled. Click a snap point to begin a beam.');
+        } else {
+          var orbit = this.computeOrbit(this.armed, pt);
+          this.pushHistory();
+          var added = this.addBeams(orbit);
+          var attempted = orbit.length;
+          this.armed = null;
+          if (added < attempted && this.beams.length >= MAX_BEAMS) {
+            this.updateStatus('Added ' + added + '/' + attempted + ' beams (MAX_BEAMS limit reached).');
+          } else {
+            this.updateStatus('Added ' + added + ' beam' + (added !== 1 ? 's' : '') + '. Click a snap point to begin another.');
+          }
+          this.refresh();
+        }
+      }
+      if (raymarcher) raymarcher._dirty = true;
+    } else if (this.mode === 'remove') {
+      var idx = this.pickBeam(screenX, screenY);
+      if (idx >= 0) {
+        this.pushHistory();
+        var removed = this.beams[idx];
+        // Compute the orbit of this beam and remove all symmetry-equivalent ones
+        var orbit = this.computeOrbit([removed[0],removed[1],removed[2]], [removed[3],removed[4],removed[5]]);
+        var n = 0;
+        for (var k = 0; k < orbit.length; k++) {
+          if (this.removeBeamAt(orbit[k])) n++;
+        }
+        this.updateStatus('Removed ' + n + ' beam' + (n !== 1 ? 's' : '') + '.');
+        this.refresh();
+      } else {
+        this.updateStatus('Click on a beam to remove it.');
+      }
+    }
+  },
+
+  cancelArmed: function() {
+    if (this.armed) {
+      this.armed = null;
+      this.updateStatus('Cancelled. Click a snap point to begin a beam.');
+      if (raymarcher) raymarcher._dirty = true;
+    }
+  },
+
+  // ─── Refresh: push state to raymarcher and update UI ────────────────
+  refresh: function() {
+    if (raymarcher) {
+      raymarcher.setBuilderParams(this.beams, {
+        topology: '__builder__',
+        radius: this.radius,
+        cell: 1.5,
+        tile: this.tile,
+        quality: currentQuality
+      });
+    }
+    this.updateMetrics();
+  },
+
+  updateStatus: function(msg) {
+    var el = document.getElementById('bldStatusLine');
+    if (el) el.textContent = msg;
+  },
+
+  updateMetrics: function() {
+    var sumLen = 0;
+    for (var i = 0; i < this.beams.length; i++) {
+      var b = this.beams[i];
+      var L = Math.sqrt((b[3]-b[0])*(b[3]-b[0]) + (b[4]-b[1])*(b[4]-b[1]) + (b[5]-b[2])*(b[5]-b[2]));
+      sumLen += L / beamSharingFactor(b);
+    }
+    var rL = this.radius;
+    var density = (Math.PI * rL * rL * sumLen) / 8.0 * 100;
+    document.getElementById('bldMBeams').textContent = this.beams.length;
+    document.getElementById('bldMDensity').textContent = density.toFixed(1);
+    document.getElementById('bldMLength').textContent = sumLen.toFixed(1);
+    // Homogenization
+    var h = computeHomogenization(this.beams);
+    document.getElementById('bldMNodes').textContent = h.nRaw;
+    document.getElementById('bldMPbcNodes').textContent = h.nPbc;
+    var mEl = document.getElementById('bldMMaxwell');
+    mEl.textContent = (h.maxwell >= 0 ? '+' : '') + h.maxwell;
+    mEl.style.color = h.maxwell >= 0 ? '' : '#ff6b9a';
+    // Phase 2: DSM-PBC engineering constants
+    var ids = ['bldMEx','bldMEy','bldMEz','bldMGyz','bldMGxy','bldMGxz','bldMAniso','bldMNuxy'];
+    if (this.beams.length === 0) {
+      ids.forEach(function(id){ var el = document.getElementById(id); if (el) el.textContent = '—'; });
+      document.getElementById('bldHomogStatus').textContent = 'No beams.';
+      if (bldStiffSurf) bldStiffSurf.clear();
+      setStiffEmpty('bld', 'empty', null, true);
+      return;
+    }
+    try {
+      var d = homogenizeDSM(this.beams, materialEs, materialNu, this.radius);
+      if (d.valid) {
+        var modUnit = chooseModulusUnit([d.Ex, d.Ey, d.Ez, d.Gxy, d.Gyz, d.Gxz]);
+        document.getElementById('bldMEx').textContent = formatInUnit(d.Ex, modUnit);
+        document.getElementById('bldMEy').textContent = formatInUnit(d.Ey, modUnit);
+        document.getElementById('bldMEz').textContent = formatInUnit(d.Ez, modUnit);
+        document.getElementById('bldMGyz').textContent = formatInUnit(d.Gyz, modUnit);
+        document.getElementById('bldMGxy').textContent = formatInUnit(d.Gxy, modUnit);
+        document.getElementById('bldMGxz').textContent = formatInUnit(d.Gxz, modUnit);
+        document.getElementById('bldMAniso').textContent = isFinite(d.anisotropy) ? d.anisotropy.toFixed(2) : '—';
+        document.getElementById('bldMNuxy').textContent = isFinite(d.nuxy) ? d.nuxy.toFixed(3) : '—';
+        // Zener bar
+        var z = zenerAnisotropy(d.C);
+        document.getElementById('bldZenerVal').textContent = z.A.toFixed(3);
+        document.getElementById('bldZenerVal').style.color = z.color;
+        document.getElementById('bldZenerLabel').textContent = z.label;
+        document.getElementById('bldZenerLabel').style.color = z.color;
+        var Aclamp = Math.min(Math.max(z.A, 0.3), 2.5);
+        document.getElementById('bldZenerMarker').style.left = ((Aclamp - 0.3) / (2.5 - 0.3) * 100).toFixed(1) + '%';
+        // Stiffness surface (lazy init)
+        if (!bldStiffSurf) bldStiffSurf = new StiffnessSurface('bldStiffSurfCv');
+        var Emax = maxEdir(d.S) * 1.15;  // sample over unit sphere → true max directional E. 1.05 = small headroom so surface fits inside r=1 bound.
+        bldStiffSurf.update(d.S, Emax);
+        setStiffEmpty('bld', 'hide', null, true);
+        document.getElementById('bldHomogStatus').innerHTML = 'Sharing-weighted DSM-PBC, frame elements. Material on Library tab. <strong style="color:#888">Validation:</strong> within 65–100% of literature for known cells; treat as engineering guidance.';
+      } else {
+        ids.forEach(function(id){ var el = document.getElementById(id); if (el) el.textContent = '—'; });
+        document.getElementById('bldZenerVal').textContent = '—';
+        document.getElementById('bldZenerLabel').textContent = '—';
+        document.getElementById('bldZenerMarker').style.left = '40%';
+        if (bldStiffSurf) bldStiffSurf.clear();
+        if (d.reason === 'disconnected') {
+          setStiffEmpty('bld', 'disconnected', d.components, true);
+          document.getElementById('bldHomogStatus').textContent = 'Disconnected: ' + d.components + ' substructures (mechanism).';
+        } else {
+          setStiffEmpty('bld', 'mechanism', d.reason, true);
+          document.getElementById('bldHomogStatus').textContent = 'Cell not stiff: ' + (d.reason || 'invalid');
+        }
+      }
+    } catch (e) {
+      ids.forEach(function(id){ var el = document.getElementById(id); if (el) el.textContent = '—'; });
+      if (bldStiffSurf) bldStiffSurf.clear();
+      setStiffEmpty('bld', 'error', e.message, true);
+      document.getElementById('bldHomogStatus').textContent = 'Homogenization error: ' + e.message;
+    }
+  }
+};
+
+// ─── Builder UI handlers ─────────────────────────────────────────────────
+function bldSetSnap(d) {
+  Builder.snapDensity = d;
+  ['Coarse','Medium','Fine'].forEach(function(s){
+    var btn = document.getElementById('btnSnap' + s);
+    if (btn) btn.classList.toggle('active', s.toLowerCase() === d);
+  });
+  if (raymarcher) raymarcher._dirty = true;
+}
+function bldSetSymmetry(s) {
+  Builder.symmetry = s;
+  if (raymarcher) raymarcher._dirty = true;
+}
+function bldSetMode(m) {
+  Builder.mode = m;
+  document.getElementById('btnModeAdd').classList.toggle('active', m === 'add');
+  document.getElementById('btnModeRemove').classList.toggle('active', m === 'remove');
+  if (m === 'remove') {
+    Builder.armed = null;
+    Builder.updateStatus('Click on a beam to remove it (and its symmetry copies).');
+  } else {
+    Builder.updateStatus('Click a snap point to begin a beam.');
+  }
+  if (raymarcher) raymarcher._dirty = true;
+}
+function bldUndo() { Builder.undo(); }
+function bldRedo() { Builder.redo(); }
+function bldClear() { Builder.clear(); }
+// Start a fresh cell: clear beams + history + redo + armed state, reset name to default.
+function bldNewCell() {
+  Builder.beams = [];
+  Builder.history = [];
+  Builder.redoStack = [];
+  Builder.armed = null;
+  Builder.cellName = 'Custom Cell';
+  document.getElementById('bldCellName').value = 'Custom Cell';
+  Builder.refresh();
+  Builder.updateStatus('New empty cell. Click a snap point to begin a beam.');
+}
+function bldRedraw() {
+  Builder.showGhost = document.getElementById('bldGhost').checked;
+  if (raymarcher) raymarcher._dirty = true;
+}
+function bldSetRadius(v) {
+  Builder.radius = v;
+  document.getElementById('bldRadiusValue').textContent = v.toFixed(3);
+  Builder.refresh();
+}
+function bldSetTile(t) {
+  var prev = Builder.tile;
+  Builder.tile = t;
+  ['1','2','3'].forEach(function(s){
+    document.getElementById('bldTile' + s).classList.toggle('active', parseInt(s) === t);
+  });
+  if (raymarcher) raymarcher.camZoom = Math.max(2.5, Math.min(40, raymarcher.camZoom * (t / prev)));
+  Builder.refresh();
+}
+
+function bldBuildExportData() {
+  var sumLen = 0;
+  for (var i = 0; i < Builder.beams.length; i++) {
+    var b = Builder.beams[i];
+    sumLen += Math.sqrt((b[3]-b[0])*(b[3]-b[0]) + (b[4]-b[1])*(b[4]-b[1]) + (b[5]-b[2])*(b[5]-b[2]));
+  }
+  var densityPct = (Math.PI * Builder.radius * Builder.radius * sumLen) / 8 * 100;
+  return {
+    meta: { version: '0.2.1', tool: 'beam-builder', timestamp: new Date().toISOString() },
+    cell: { name: document.getElementById('bldCellName').value, beam_count: Builder.beams.length },
+    geometry: { radius: Builder.radius, cell: 1.5 },
+    metrics: {
+      relative_density_pct: parseFloat(densityPct.toFixed(2)),
+      total_beam_length_local: parseFloat(sumLen.toFixed(3))
+    },
+    beams: Builder.beams,
+    homogenization: buildHomogJSON(Builder.beams, Builder.radius)
+  };
+}
+
+function _bldNameSlug() {
+  var name = document.getElementById('bldCellName').value || 'custom';
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || 'custom';
+}
+
+function bldExportJSON() {
+  var data = bldBuildExportData();
+  var json = JSON.stringify(data, null, 2);
+  var ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+  downloadBlob(new Blob([json], { type: 'application/json' }), 'beam_' + _bldNameSlug() + '_' + ts + '.json');
+  if (navigator.clipboard) navigator.clipboard.writeText(json).catch(function(){});
+  flashExportButton('bldExportBtn', 'Copied + downloaded \u2713');
+}
+
+function bldExportLTCX() {
+  var name = document.getElementById('bldCellName').value || 'custom';
+  var xml = buildExportLTCX(Builder.beams, 1.5, name);
+  var ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+  downloadBlob(new Blob([xml], { type: 'application/xml' }), 'beam_' + _bldNameSlug() + '_' + ts + '.ltcx');
+  flashExportButton('bldExportLtcxBtn', 'Downloaded \u2713');
+}
+
+function bldExportCSV() {
+  var csv = buildExportCSVPair(Builder.beams, 1.5);
+  var enc = new TextEncoder();
+  var zip = buildZip([
+    { name: 'nodes.csv', data: enc.encode(csv.nodes) },
+    { name: 'beams.csv', data: enc.encode(csv.beams) }
+  ]);
+  var ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+  downloadBlob(new Blob([zip], { type: 'application/zip' }), 'beam_' + _bldNameSlug() + '_' + ts + '.zip');
+  flashExportButton('bldExportCsvBtn', 'Downloaded \u2713');
+}
+
+function bldOpenInMesh() {
+  var data = {
+    meta: { version: '0.2.1', tool: 'beam-builder', timestamp: new Date().toISOString() },
+    cell: { name: document.getElementById('bldCellName').value, beam_count: Builder.beams.length },
+    geometry: { radius: Builder.radius, cell: 1.5 },
+    beams: Builder.beams
+  };
+  var encoded = encodeURIComponent(JSON.stringify(data));
+  window.open('https://mshomper.github.io/f13ld.mesh/?r=' + encoded, '_blank');
+}
+
+function bldPushToLibrary() {
+  var name = document.getElementById('bldCellName').value || 'Custom Cell';
+  // Generate a unique key
+  var slug = 'custom_' + name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+  var n = 1;
+  var baseSlug = slug;
+  while (BEAM_CATALOGS[slug]) { n++; slug = baseSlug + '_' + n; }
+  // Add to in-memory catalog
+  BEAM_CATALOGS[slug] = Builder.beams.map(function(b){ return b.slice(); });
+  TOPO_DESC[slug] = 'User-built (' + Builder.beams.length + ' beams).';
+  sessionCustomCells[slug] = { name: name, beams: BEAM_CATALOGS[slug] };
+  // Add to dropdown under a "Custom" optgroup, creating it if needed
+  var sel = document.getElementById('topology');
+  var customGroup = null;
+  for (var i = 0; i < sel.children.length; i++) {
+    if (sel.children[i].label === 'Custom') { customGroup = sel.children[i]; break; }
+  }
+  if (!customGroup) {
+    customGroup = document.createElement('optgroup');
+    customGroup.label = 'Custom';
+    sel.appendChild(customGroup);
+  }
+  var opt = document.createElement('option');
+  opt.value = slug;
+  opt.textContent = name;
+  customGroup.appendChild(opt);
+  sel.value = slug;
+  switchTab('library');
+  onTopologyChange();
+}
+
+// ─── Geometry helpers (symmetry + picking math) ───────────────────────────
+function _samePtRaw(ax, ay, az, bx, by, bz) {
+  return Math.abs(ax-bx) < 1e-4 && Math.abs(ay-by) < 1e-4 && Math.abs(az-bz) < 1e-4;
+}
+
+function pointToSegment2D(px, py, ax, ay, bx, by) {
+  var vx = bx - ax, vy = by - ay;
+  var len2 = vx*vx + vy*vy;
+  if (len2 < 1e-9) return Math.sqrt((px-ax)*(px-ax) + (py-ay)*(py-ay));
+  var t = ((px-ax)*vx + (py-ay)*vy) / len2;
+  t = Math.max(0, Math.min(1, t));
+  var qx = ax + vx*t, qy = ay + vy*t;
+  return Math.sqrt((px-qx)*(px-qx) + (py-qy)*(py-qy));
+}
+
+function applyOp(M, p) {
+  return [
+    M[0]*p[0] + M[1]*p[1] + M[2]*p[2],
+    M[3]*p[0] + M[4]*p[1] + M[5]*p[2],
+    M[6]*p[0] + M[7]*p[1] + M[8]*p[2]
+  ];
+}
+
+function canonKey(a, b) {
+  return [a[0],a[1],a[2],b[0],b[1],b[2]].map(function(c){return c.toFixed(4);}).join(',');
+}
+
+function identity() { return [1,0,0, 0,1,0, 0,0,1]; }
+function mirror(axis) {
+  var M = identity();
+  M[axis*4] = -1;  // M[0]/[4]/[8] for x/y/z
+  return M;
+}
+function mirrorXYZ() {
+  var ops = [];
+  for (var sx = 0; sx < 2; sx++)
+    for (var sy = 0; sy < 2; sy++)
+      for (var sz = 0; sz < 2; sz++) {
+        var M = identity();
+        if (sx) M[0] = -1;
+        if (sy) M[4] = -1;
+        if (sz) M[8] = -1;
+        ops.push(M);
+      }
+  return ops;
+}
+
+// 24 cubic rotations: rotational symmetries of a cube.
+function cubicRotations() {
+  var ops = [];
+  // Generate by composing rotations of the 6 face directions × 4 in-plane orientations
+  var faceDirs = [
+    [[1,0,0],[0,1,0],[0,0,1]],   // identity
+    [[0,1,0],[1,0,0],[0,0,-1]],  // various face-up orientations
+    [[1,0,0],[0,0,1],[0,-1,0]],
+    [[1,0,0],[0,-1,0],[0,0,-1]],
+    [[1,0,0],[0,0,-1],[0,1,0]],
+    [[0,-1,0],[1,0,0],[0,0,1]]
+  ];
+  // Brute-force: enumerate all 3x3 matrices with ±1 entries one per row/col, det = +1
+  var basis = [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
+  for (var i = 0; i < 6; i++) for (var j = 0; j < 6; j++) for (var k = 0; k < 6; k++) {
+    var r1 = basis[i], r2 = basis[j], r3 = basis[k];
+    // Must form orthonormal basis
+    var dot12 = r1[0]*r2[0] + r1[1]*r2[1] + r1[2]*r2[2];
+    var dot13 = r1[0]*r3[0] + r1[1]*r3[1] + r1[2]*r3[2];
+    var dot23 = r2[0]*r3[0] + r2[1]*r3[1] + r2[2]*r3[2];
+    if (dot12 !== 0 || dot13 !== 0 || dot23 !== 0) continue;
+    // Cross product r1 × r2 must equal r3 (det = +1, rotation not reflection)
+    var cx = r1[1]*r2[2] - r1[2]*r2[1];
+    var cy = r1[2]*r2[0] - r1[0]*r2[2];
+    var cz = r1[0]*r2[1] - r1[1]*r2[0];
+    if (cx !== r3[0] || cy !== r3[1] || cz !== r3[2]) continue;
+    ops.push([r1[0],r2[0],r3[0], r1[1],r2[1],r3[1], r1[2],r2[2],r3[2]]);
+  }
+  return ops;
+}
+
+// 48 full octahedral: cubic rotations × inversion (rotations + reflections).
+function octahedralFull() {
+  var rots = cubicRotations();
+  var ops = rots.slice();
+  for (var i = 0; i < rots.length; i++) {
+    var R = rots[i];
+    // Inverted: multiply each entry by -1
+    var Ri = R.map(function(c){return -c;});
+    ops.push(Ri);
+  }
+  return ops;
+}
+
+
+// ─── Init ─────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function() {
+  var glEl = document.getElementById('glCanvas');
+  if (!glEl) { console.error('Canvas missing'); return; }
+  raymarcher = new Raymarcher(glEl);
+  if (!raymarcher.gl) {
+    console.warn('WebGL unavailable');
+    return;
+  }
+  if (!raymarcher.isWebGL2) {
+    document.getElementById('status').textContent = 'WebGL 2.0 required';
+    return;
+  }
+  updateTopoDescription();
+  updateMetrics();
+  raymarcher.running = true;
+
+  // Check URL for ?b= param (custom builder cell handoff)
+  var urlParams = new URLSearchParams(window.location.search);
+  var bldData = urlParams.get('b');
+  if (bldData) {
+    try {
+      var parsed = JSON.parse(decodeURIComponent(bldData));
+      if (parsed.beams && Array.isArray(parsed.beams)) {
+        Builder.loadBeams(parsed.beams);
+        if (parsed.cell && parsed.cell.name) {
+          Builder.cellName = parsed.cell.name;
+          document.getElementById('bldCellName').value = parsed.cell.name;
+        }
+        if (parsed.geometry && typeof parsed.geometry.radius === 'number') {
+          Builder.radius = parsed.geometry.radius;
+          document.getElementById('bldRadius').value = parsed.geometry.radius;
+          document.getElementById('bldRadiusValue').textContent = parsed.geometry.radius.toFixed(3);
+        }
+        switchTab('builder');
+        return;
+      }
+    } catch (e) {
+      console.warn('Failed to parse ?b= param:', e);
+    }
+  }
+  raymarcher.setParams(getParams());
+});
+</script>
+</body>
+</html>
