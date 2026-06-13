@@ -7,7 +7,7 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{min-height:100%;background:#06080f;color:#e0e0ff;font-family:system-ui,sans-serif}
-#container{display:flex;flex-direction:column;height:100vh;max-width:1400px;margin:0 auto;width:100%}
+#container{display:flex;flex-direction:column;height:100vh;max-width:1100px;margin:0 auto;width:100%}
 #cw{position:relative;background:#06080f;border-radius:12px 12px 0 0;overflow:hidden;border:0.5px solid #2a2a3a;flex:1;min-height:0;margin:16px 14px 0}
 canvas{display:block;width:100%;height:100%}
 #status{position:absolute;bottom:10px;left:10px;background:rgba(6,8,15,0.85);padding:5px 10px;border-radius:6px;font-size:11px;color:#555;pointer-events:none;border:0.5px solid #2a2a3a}
@@ -3306,5 +3306,380 @@ document.addEventListener('DOMContentLoaded', function() {
   raymarcher.setParams(getParams());
 });
 </script>
+
+<!-- ===================================================================== -->
+<!-- ==========  F13LD HELP SYSTEM  ·  modular drop-in (v1.2)  ============ -->
+<!-- Per-tool parts: (1) #f13h-theme :root vars  (2) the CONFIG block.     -->
+<!-- The #f13h-style engine CSS and the script engine are identical        -->
+<!-- across tools (adds {sec:} section-label anchor; superset of v1.1, inert where unused).            -->
+<!-- ===================================================================== -->
+
+<!-- ---- PER-TOOL THEME (only block that changes color per tool) -------- -->
+<style id="f13h-theme">
+  :root{
+    --f13h-accent:      #22d3ee;
+    --f13h-accent-soft: #3a9fb5;
+    --f13h-panel:       #0e0e1a;
+    --f13h-panel2:      #1a1a2e;
+    --f13h-bg:          #06080f;
+    --f13h-border:      #2a2a3a;
+    --f13h-border-hi:   #3a3a5a;
+    --f13h-text:        #e0e0ff;
+    --f13h-dim:         #7c8aaa;
+    --f13h-bright:      #f0f1ff;
+    --f13h-glow:        rgba(34,211,238,0.20);
+  }
+</style>
+
+<!-- ---- ENGINE CSS (identical across tools) --------------------------- -->
+<style id="f13h-style">
+  .f13h-trigger{
+    width:28px;height:28px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    background:transparent;border:0.5px solid var(--f13h-border-hi,#5C4624);
+    color:var(--f13h-dim,#8B7A5C);font-family:'Exo 2',system-ui,sans-serif;
+    font-size:14px;font-weight:700;cursor:pointer;flex-shrink:0;
+    transition:all .15s ease;line-height:1;padding:0;
+  }
+  .f13h-trigger:hover{color:var(--f13h-accent,#F59E0B);border-color:var(--f13h-accent,#F59E0B);
+    box-shadow:0 0 8px var(--f13h-glow,rgba(245,158,11,0.25));}
+  .f13h-trigger.active{color:var(--f13h-accent,#F59E0B);border-color:var(--f13h-accent,#F59E0B);}
+  .f13h-i{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:14px;height:14px;border-radius:50%;
+    border:0.5px solid var(--f13h-border-hi,#5C4624);color:var(--f13h-dim,#8B7A5C);
+    background:transparent;font-size:9px;font-weight:700;font-style:italic;
+    font-family:Georgia,'Times New Roman',serif;
+    cursor:pointer;margin-left:6px;flex-shrink:0;vertical-align:middle;
+    transition:all .15s ease;padding:0;line-height:1;
+  }
+  .f13h-i:hover{color:var(--f13h-bg,#0F0B07);background:var(--f13h-accent,#F59E0B);border-color:var(--f13h-accent,#F59E0B);}
+  .f13h-scrim{
+    position:fixed;inset:0;background:rgba(4,5,9,0.55);
+    -webkit-backdrop-filter:blur(1.5px);backdrop-filter:blur(1.5px);
+    opacity:0;pointer-events:none;transition:opacity .22s ease;z-index:998;
+  }
+  .f13h-scrim.open{opacity:1;pointer-events:auto;}
+  .f13h-drawer{
+    position:fixed;top:48px;right:0;
+    width:min(440px,100vw);max-height:calc(100vh - 64px);
+    background:var(--f13h-panel,#15100A);
+    border:0.5px solid var(--f13h-border,#3A2D1A);border-top:none;
+    border-radius:0 0 0 14px;
+    box-shadow:0 20px 50px rgba(0,0,0,0.5);
+    display:flex;flex-direction:column;
+    transform:translateY(calc(-100% - 48px));opacity:0;pointer-events:none;
+    transition:transform .28s cubic-bezier(.22,.61,.36,1),opacity .2s ease;
+    z-index:999;font-family:'Exo 2',system-ui,sans-serif;
+  }
+  .f13h-drawer.open{transform:translateY(0);opacity:1;pointer-events:auto;}
+  @media (max-width:480px){ .f13h-drawer{width:100vw;border-radius:0;right:0 !important;} }
+  .f13h-head{
+    display:flex;align-items:center;gap:10px;
+    padding:13px 16px 11px;border-bottom:0.5px solid var(--f13h-border,#3A2D1A);flex-shrink:0;
+  }
+  .f13h-head h2{ font-size:13px;font-weight:700;letter-spacing:0.06em;color:var(--f13h-bright,#FEF3C7);margin:0; }
+  .f13h-head h2 b{color:var(--f13h-accent,#F59E0B);font-weight:700;}
+  .f13h-head h2 span{font-size:9px;letter-spacing:0.14em;color:var(--f13h-dim,#8B7A5C);text-transform:uppercase;margin-left:6px;}
+  .f13h-tut{
+    margin-left:auto;font-size:10px;letter-spacing:0.04em;color:var(--f13h-accent,#F59E0B);
+    text-decoration:none;border:0.5px solid var(--f13h-accent-soft,#D97706);border-radius:20px;
+    padding:3px 10px;white-space:nowrap;transition:background .15s;
+  }
+  .f13h-tut:hover{background:var(--f13h-glow,rgba(245,158,11,0.12));}
+  .f13h-close{
+    width:24px;height:24px;border-radius:6px;border:none;background:transparent;
+    color:var(--f13h-dim,#8B7A5C);font-size:18px;cursor:pointer;line-height:1;
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;
+  }
+  .f13h-close:hover{color:var(--f13h-bright,#FEF3C7);background:var(--f13h-panel2,#1C160D);}
+  .f13h-body{overflow-y:auto;padding:4px 16px 20px;}
+  .f13h-intro{font-size:11px;line-height:1.55;color:var(--f13h-dim,#8B7A5C);margin:12px 0 4px;padding-bottom:4px;}
+  .f13h-section-t{
+    font-size:9px;letter-spacing:0.16em;text-transform:uppercase;color:var(--f13h-accent,#F59E0B);
+    margin:18px 0 8px;display:flex;align-items:center;gap:7px;
+  }
+  .f13h-section-t::before{content:"";width:4px;height:4px;border-radius:50%;
+    background:var(--f13h-accent,#F59E0B);box-shadow:0 0 6px var(--f13h-accent,#F59E0B);}
+  .f13h-card{
+    background:var(--f13h-panel2,#1C160D);border:0.5px solid var(--f13h-border,#3A2D1A);
+    border-radius:9px;padding:11px 12px;margin-bottom:8px;
+    transition:border-color .25s ease,box-shadow .25s ease;
+  }
+  .f13h-card.flash{border-color:var(--f13h-accent,#F59E0B);
+    box-shadow:0 0 0 1px var(--f13h-accent,#F59E0B),0 0 14px var(--f13h-glow,rgba(245,158,11,0.28));}
+  .f13h-card-h{display:flex;align-items:baseline;gap:8px;margin-bottom:3px;flex-wrap:wrap;}
+  .f13h-name{font-size:12px;font-weight:700;color:var(--f13h-bright,#FEF3C7);letter-spacing:0.02em;}
+  .f13h-range{
+    font-size:9px;color:var(--f13h-dim,#8B7A5C);border:0.5px solid var(--f13h-border-hi,#5C4624);
+    border-radius:10px;padding:1px 7px;white-space:nowrap;font-family:'JetBrains Mono',ui-monospace,monospace;
+  }
+  .f13h-line{display:flex;gap:8px;font-size:11px;line-height:1.5;margin-top:5px;color:var(--f13h-text,#D4C5A8);}
+  .f13h-tag{flex-shrink:0;font-size:8px;letter-spacing:0.1em;text-transform:uppercase;
+    color:var(--f13h-dim,#8B7A5C);width:34px;padding-top:2px;font-weight:700;text-align:right;}
+  .f13h-line.means .f13h-tag{color:var(--f13h-accent-soft,#D97706);}
+  .f13h-body::-webkit-scrollbar{width:8px;}
+  .f13h-body::-webkit-scrollbar-track{background:var(--f13h-panel,#15100A);}
+  .f13h-body::-webkit-scrollbar-thumb{background:var(--f13h-border,#3A2D1A);border-radius:4px;}
+  .f13h-body::-webkit-scrollbar-thumb:hover{background:var(--f13h-border-hi,#5C4624);}
+</style>
+
+<script id="f13h-script">
+(function(){
+  "use strict";
+
+  /* ============ PER-TOOL CONFIG (changes per tool) ===================== */
+  var TUTORIAL_URL = 'https://tutorial.f13ld.app/beam';
+  var TOOL_TITLE   = 'beam';
+  var ROW_SEL      = '.sc-group';
+  var INTRO = 'F13LD.beam builds strut-and-node lattices \u2014 pick a named cubic cell in the Library and tune it, or draw your own on a snap grid in the Builder. Live beam-frame homogenization reports the stiffness either way. Tap any i beside a control to jump here.';
+
+  var SECTIONS = [
+    { title:'Mode', items:[
+      { id:'tabs', label:'Library / Builder', anchor:{after:'#tabBuilder'},
+        what:'Switches between the preset Library and the freeform Builder.',
+        see:'Library = pick a named cubic cell and tune it; Builder = place struts on a snap grid to design your own.',
+        why:'Catalog speed vs. full custom control \u2014 cells move between them ("Edit this cell in Builder" / "Push to Library").' }
+    ]},
+    { title:'Library \u00b7 topology', items:[
+      { id:'topology', label:'topology', anchor:{sec:'#topology'},
+        what:'The unit-cell strut pattern: foundational (Simple Cubic, BCC, FCC, diamond), truss family (octet, octahedron), reinforced hybrids, polyhedral (Kelvin, rhombic dodecahedron), and novel / auxetic cells.',
+        see:'Swaps the whole beam network; the description and live metrics update.',
+        why:'Each topology has its own stiffness signature and Maxwell number \u2014 stretch- versus bending-dominated.' }
+    ]},
+    { title:'Library \u00b7 geometry', items:[
+      { id:'radius', label:'radius', range:'0.02 \u2013 0.30', anchor:{row:'#radius'},
+        what:'Strut radius in cell-local units (fraction of half-cell). Beam diameter = 2 \u00b7 radius \u00b7 cell.',
+        see:'Struts thicken or thin; relative density rises with radius.',
+        why:'Your relative-density / stiffness dial for the lattice.' },
+      { id:'cell', label:'cell size', range:'0.5 \u2013 3.0', anchor:{row:'#cell'},
+        what:'Physical edge length of one unit cell.',
+        see:'Scales the whole cell; with a fixed radius fraction the beams scale with it.',
+        why:'Sets absolute feature and pore size for the print.' },
+      { id:'tiling', label:'tiling \u00b7 1\u00b3 / 2\u00b3 / 3\u00b3', anchor:{row:'#btnTile1'},
+        what:'How many cells repeat across the preview.',
+        see:'A 1-, 8-, or 27-cell block.',
+        why:'Confirms the cell tiles seamlessly before export.' }
+    ]},
+    { title:'Homogenization', items:[
+      { id:'matE', label:'parent E\u209b', range:'MPa', anchor:{row:'#matE'},
+        what:'Young\u2019s modulus of the solid strut material.',
+        see:'Scales the reported engineering moduli linearly.',
+        why:'Material baseline \u2014 default Ti-6Al-4V (113 GPa).' },
+      { id:'matNu', label:'parent \u03bd\u209b', anchor:{row:'#matNu'},
+        what:'Poisson\u2019s ratio of the solid material.',
+        see:'Adjusts the computed engineering constants.',
+        why:'Feeds the beam-frame stiffness model.' },
+      { id:'stiffness', label:'directional stiffness \u00b7 readouts', anchor:{sec:'#stiffSurfCv'},
+        what:'Live engineering constants, computed automatically (no Run button) via sharing-weighted DSM-PBC frame elements.',
+        see:'Beams / Rel \u03c1\u0304 / nodes / Maxwell M on the left; E\u2093, E\u1d67, E_z, shear moduli, anisotropy, Poisson on the right; the stiffness surface and Zener A in the middle.',
+        why:'Maxwell M flags stretch- vs bending-dominated; Zener A = 1 is isotropic. Engineering guidance \u2014 cross-check against FEA for design-critical work.' }
+    ]},
+    { title:'Library \u00b7 export', items:[
+      { id:'export', label:'JSON / LTCX / CSV',
+        what:'Saves the lattice as JSON (recipe), LTCX (beam-lattice format), or CSV (node / beam tables).',
+        see:'Downloads the chosen format; the 3MF Beam Lattice handoff carries struts and radii.',
+        why:'LTCX carries the full beam-and-node graph; JSON round-trips within F13LD.' }
+    ]},
+    { title:'Builder \u00b7 cell', items:[
+      { id:'cellname', label:'cell name', anchor:{sec:'#bldCellName'},
+        what:'Names your custom cell; "Push to Library" saves it, "New" clears the canvas.',
+        see:'The name travels with the cell when you push it to the Library.',
+        why:'Round-trips a hand-built cell into the catalog alongside the presets.' }
+    ]},
+    { title:'Builder \u00b7 editing', items:[
+      { id:'snap', label:'snap density \u00b7 15 / 27 / 63', anchor:{sec:'#btnSnapCoarse'},
+        what:'Resolution of the node grid you snap struts to \u2014 coarse 15, medium 27, fine 63 points.',
+        see:'More snap points = finer placement and denser candidate nodes.',
+        why:'Trades placement precision against a cleaner, simpler grid.' },
+      { id:'edit', label:'edit \u00b7 Add / Remove', anchor:{sec:'#btnModeAdd'},
+        what:'Whether clicking snap points adds or removes beams.',
+        see:'Add draws struts between clicked nodes; Remove deletes them.',
+        why:'The core draw mode of the Builder.' },
+      { id:'bldradius', label:'radius', range:'0.02 \u2013 0.30', anchor:{sec:'#bldRadius'},
+        what:'Strut radius for the custom cell (cell-local units).',
+        see:'Thickens or thins every beam in the build.',
+        why:'Relative-density dial for your hand-built lattice.' },
+      { id:'symmetry', label:'symmetry', anchor:{sec:'#bldSymmetry'},
+        what:'Mirrors or rotations applied to each beam you place: none, mirror X/Y/Z, mirror XYZ (8), cubic rotations (24), or full octahedral (48).',
+        see:'One drawn strut is replicated into a symmetric set automatically.',
+        why:'Build a high-symmetry cell from a few strokes \u2014 enforces cubic / octahedral order.' },
+      { id:'history', label:'history \u00b7 Undo / Redo / Clear',
+        what:'Step back or forward through edits, or clear the cell.',
+        see:'Reverts or replays beam placements.',
+        why:'Safe experimentation while drawing.' },
+      { id:'bldtiling', label:'tiling \u00b7 1\u00b3 / 2\u00b3 / 3\u00b3', anchor:{sec:'#bldTile1'},
+        what:'Cell repeats across the Builder preview.',
+        see:'A 1-, 8-, or 27-cell block of your custom cell.',
+        why:'Checks tiling and connectivity across cell boundaries.' },
+      { id:'ghost', label:'ghost preview', anchor:{row:'#bldGhost'},
+        what:'Shows a faint preview of the beam under your cursor before you place it.',
+        see:'A ghost strut follows the hover; off hides it.',
+        why:'Aim before committing a beam.' }
+    ]},
+    { title:'Builder \u00b7 export', items:[
+      { id:'bldexport', label:'JSON / LTCX / CSV',
+        what:'Exports the custom cell as JSON, LTCX (beam-lattice), or CSV.',
+        see:'Same formats as the Library tab, for your built cell.',
+        why:'Hand-built cells export identically to catalog cells.' }
+    ]},
+    { title:'Render', items:[
+      { id:'quality', label:'quality \u00b7 Low / Med / High / Ultra',
+        what:'Render quality of the 3D preview (top of the viewport).',
+        see:'Higher = smoother beams and caps, slower; lower = faster.',
+        why:'Preview fidelity only \u2014 it does not change geometry or export.' }
+    ]}
+  ];
+  /* ============ END PER-TOOL CONFIG ==================================== */
+
+  function el(tag, cls, html){ var n=document.createElement(tag); if(cls) n.className=cls; if(html!=null) n.innerHTML=html; return n; }
+
+  var scrim, drawer, trigger;
+
+  function line(tag, txt, kind){
+    var l = el('div','f13h-line'+(kind?(' '+kind):''));
+    l.appendChild(el('span','f13h-tag',tag));
+    l.appendChild(el('span',null,txt));
+    return l;
+  }
+
+  function build(){
+    scrim = el('div','f13h-scrim');
+    drawer = el('div','f13h-drawer');
+
+    var head = el('div','f13h-head');
+    head.appendChild(el('h2', null, 'F13LD.<b>'+TOOL_TITLE+'</b><span>field guide</span>'));
+    var tut = document.createElement('a');
+    tut.className='f13h-tut'; tut.href=TUTORIAL_URL; tut.target='_blank'; tut.rel='noopener';
+    tut.textContent='Tutorial \u2197';
+    head.appendChild(tut);
+    var close = el('button','f13h-close','\u00d7'); close.setAttribute('aria-label','Close');
+    close.addEventListener('click', closeDrawer);
+    head.appendChild(close);
+    drawer.appendChild(head);
+
+    var body = el('div','f13h-body');
+    body.appendChild(el('div','f13h-intro', INTRO));
+    SECTIONS.forEach(function(sec){
+      body.appendChild(el('div','f13h-section-t', sec.title));
+      sec.items.forEach(function(it){
+        var card = el('div','f13h-card'); card.id='f13h-card-'+it.id;
+        var h = el('div','f13h-card-h');
+        h.appendChild(el('span','f13h-name', it.label));
+        if(it.range) h.appendChild(el('span','f13h-range', it.range));
+        card.appendChild(h);
+        if(it.what) card.appendChild(line('sets',  it.what));
+        if(it.see)  card.appendChild(line('shows', it.see));
+        if(it.why)  card.appendChild(line('means', it.why, 'means'));
+        body.appendChild(card);
+      });
+    });
+    drawer.appendChild(body);
+
+    document.body.appendChild(scrim);
+    document.body.appendChild(drawer);
+    scrim.addEventListener('click', closeDrawer);
+  }
+
+  /* keep the drawer tucked under the header's right edge (handles centered layouts) */
+  function alignDrawer(){
+    if(!drawer) return;
+    var h = document.querySelector('.f13ld-header');
+    if(!h) return;
+    var r = h.getBoundingClientRect();
+    drawer.style.right = Math.max(0, Math.round(window.innerWidth - r.right)) + 'px';
+  }
+
+  function openDrawer(id){
+    alignDrawer();
+    scrim.classList.add('open');
+    drawer.classList.add('open');
+    if(trigger) trigger.classList.add('active');
+    if(id){
+      setTimeout(function(){
+        var c = document.getElementById('f13h-card-'+id);
+        if(!c) return;
+        c.scrollIntoView({block:'center', behavior:'smooth'});
+        c.classList.add('flash');
+        setTimeout(function(){ c.classList.remove('flash'); }, 1500);
+      }, 90);
+    }
+  }
+  function closeDrawer(){
+    scrim.classList.remove('open');
+    drawer.classList.remove('open');
+    if(trigger) trigger.classList.remove('active');
+  }
+
+  function makeI(id){
+    var b = el('button','f13h-i','i'); b.type='button';
+    b.setAttribute('aria-label','About this control');
+    b.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); openDrawer(id); });
+    return b;
+  }
+
+  /* resolve the <label> for a control row, tolerant of different markups */
+  function rowLabel(sel){
+    var elx = document.querySelector(sel); if(!elx) return null;
+    var c = elx.closest(ROW_SEL);
+    if(c){ var l = c.querySelector('label'); if(l) return l; }
+    var lw = elx.closest('label'); if(lw) return lw;   /* label-wrapped input */
+    return null;
+  }
+
+  /* place an inline "i" using one of: row | into | after | titleBefore */
+  /* find the nearest preceding .sec-lbl heading for a control (section-titled groups) */
+  function secLabelFor(sel){
+    var el = document.querySelector(sel); if(!el) return null;
+    var node = el;
+    while(node && node !== document.body){
+      var p = node.previousElementSibling;
+      while(p){
+        if(p.classList && p.classList.contains('sec-lbl')) return p;
+        p = p.previousElementSibling;
+      }
+      node = node.parentElement;
+    }
+    return null;
+  }
+
+  function place(item){
+    var a = item.anchor; if(!a) return;
+    if(a.sec){ var sl = secLabelFor(a.sec); if(sl) sl.appendChild(makeI(item.id)); return; }
+    if(a.into){ var t = document.querySelector(a.into); if(t) t.appendChild(makeI(item.id)); return; }
+    if(a.titleBefore){ var e = document.querySelector(a.titleBefore);
+      if(e && e.previousElementSibling) e.previousElementSibling.appendChild(makeI(item.id)); return; }
+    if(a.after){ var x = document.querySelector(a.after);
+      if(x && x.parentNode) x.parentNode.insertBefore(makeI(item.id), x.nextSibling); return; }
+    if(a.row){ var l = rowLabel(a.row); if(!l) return;
+      if(l.id){ l.parentNode.insertBefore(makeI(item.id), l.nextSibling); }  /* app may rewrite this label's innerHTML; sibling survives */
+      else { l.appendChild(makeI(item.id)); }
+      return; }
+  }
+
+  function init(){
+    build();
+    var fhRight = document.querySelector('.fh-right');
+    if(fhRight){
+      trigger = el('button','f13h-trigger','?');
+      trigger.type='button';
+      trigger.title='Help \u00b7 control guide';
+      trigger.setAttribute('aria-label','Help');
+      trigger.addEventListener('click', function(){
+        if(drawer.classList.contains('open')) closeDrawer(); else openDrawer(null);
+      });
+      fhRight.insertBefore(trigger, fhRight.firstChild);
+    }
+    SECTIONS.forEach(function(sec){ sec.items.forEach(place); });
+    alignDrawer();
+    window.addEventListener('resize', alignDrawer);
+    document.addEventListener('keydown', function(e){ if(e.key==='Escape') closeDrawer(); });
+  }
+
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
+</script>
+<!-- =====================  END F13LD HELP SYSTEM  ======================= -->
 </body>
 </html>
