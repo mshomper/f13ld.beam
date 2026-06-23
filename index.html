@@ -65,6 +65,9 @@ select{font-size:12px;padding:3px 6px;background:#1a1a2e;border:0.5px solid #3a3
 .fh-mesh-btn{font-size:11px;padding:4px 12px;border:0.5px solid #1D9E75;border-radius:20px;background:rgba(29,158,117,0.08);color:#1D9E75;cursor:pointer;font-family:inherit;font-weight:600;white-space:nowrap;transition:background 0.15s}
 .fh-mesh-btn:hover{background:rgba(29,158,117,0.18)}
 #axisCanvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:12}
+#clipOverlay{position:absolute;bottom:44px;left:10px;display:flex;gap:6px;z-index:13}
+.clip-pill{background:rgba(6,8,15,0.85);color:#555;border:0.5px solid #2a2a3a;border-radius:5px;font-size:11px;font-weight:600;letter-spacing:0.04em;padding:4px 9px;cursor:pointer;transition:color 0.15s,border-color 0.15s;font-family:inherit;line-height:1}
+#clipHandleHit{position:absolute;width:32px;height:32px;margin:-16px 0 0 -16px;z-index:14;cursor:grab;display:none;touch-action:none}
 /* Stiffness surface viz (TPMS-style) */
 .viz-row{display:grid;grid-template-columns:1fr 96px;gap:6px;margin-bottom:8px}
 /* 3-column layout: left tiles | center canvas | right tiles. Used in homogenization section. */
@@ -148,6 +151,12 @@ select{font-size:12px;padding:3px 6px;background:#1a1a2e;border:0.5px solid #3a3
   <div id="cw">
     <canvas id="glCanvas"></canvas>
     <canvas id="axisCanvas"></canvas>
+    <div id="clipOverlay">
+      <button class="clip-pill" id="clipPillX" onclick="onClipPill(1)">X</button>
+      <button class="clip-pill" id="clipPillY" onclick="onClipPill(2)">Y</button>
+      <button class="clip-pill" id="clipPillZ" onclick="onClipPill(3)">Z</button>
+    </div>
+    <div id="clipHandleHit"></div>
     <div id="status">Initializing…</div>
     <div id="indicators">
       <div class="ind-pill"><div class="ind-dot" id="dotShader" style="background:#22d3ee"></div><span class="ind-label">shader</span><span id="labelShader" style="color:#22d3ee;font-size:10px">ready</span></div>
@@ -1503,6 +1512,7 @@ Raymarcher.prototype._buildShader = function(params) {
     'uniform int beamCount;',
     'uniform float uRadius;',
     'uniform float uTile;',
+    'uniform float uClipAxis; uniform float uClipPos; uniform float uClipSide;',
     'const float H = 1.0;',  // single-cell half-extent in shader units (cube spans [-H,+H])
     'const float CELL = 2.0 * H;',
     // Capsule SDF
@@ -1595,14 +1605,16 @@ Raymarcher.prototype._buildShader = function(params) {
     // Bounding-box ray intersection — expanded to enclose all uTile^3 cells.
     '  float bound = H * uTile;',
     '  vec3 iv = vec3(1.0) / rd;',
-    '  vec3 tb = (-vec3(bound) - ro) * iv;',
-    '  vec3 tt = (vec3(bound) - ro) * iv;',
+    '  float cp=uClipPos*bound;vec3 axM=vec3((uClipAxis>0.5&&uClipAxis<1.5)?1.0:0.0,(uClipAxis>1.5&&uClipAxis<2.5)?1.0:0.0,(uClipAxis>2.5)?1.0:0.0);vec3 clo=vec3(-bound),chi=vec3(bound);if(uClipAxis>0.5){if(uClipSide>0.0)chi=chi-axM*(bound-cp);else clo=clo+axM*(cp+bound);}',
+    '  vec3 tb = (clo - ro) * iv;',
+    '  vec3 tt = (chi - ro) * iv;',
     '  vec3 tmi = min(tb, tt); vec3 tma = max(tb, tt);',
     '  float tEn = max(max(tmi.x, tmi.y), tmi.z);',
     '  float tEx = min(min(tma.x, tma.y), tma.z);',
     '  if (tEn > tEx || tEx < 0.0) { fragColor = vec4(bgCol, 1.0); return; }',
     '  float t = max(tEn, 0.001);',
     '  bool hit = false;',
+    '  bool isClipCap = false;',
     '  for (int i = 0; i < ' + steps + '; i++) {',
     '    if (t > tEx) break;',
     '    vec3 p = ro + rd * t;',
@@ -1615,7 +1627,8 @@ Raymarcher.prototype._buildShader = function(params) {
     '  }',
     '  if (!hit) { fragColor = vec4(bgCol, 1.0); return; }',
     '  vec3 pos = ro + rd * t;',
-    '  vec3 n = nrm(pos);',
+    '  vec3 n;',
+    '  if(uClipAxis>0.5 && abs(dot(pos,axM)-cp) < 0.01){ n = normalize(axM*sign(uClipSide)); isClipCap=true; } else { n = nrm(pos); }',
     '  if (dot(n, -rd) < 0.0) n = -n;',
     // Iridescent shading consistent with TPMS / Grain
     '  float dy = dot(n, vec3(0.0, 1.0, 0.0));',
@@ -1631,6 +1644,7 @@ Raymarcher.prototype._buildShader = function(params) {
     '  float rim = pow(1.0 - max(dot(n, -rd), 0.0), 2.5) * 0.8;',
     '  vec3 green = vec3(0.784, 0.961, 0.259);',
     '  vec3 col = iridBase * diff + vec3(1.0) * spec1 + green * spec2 * 0.6 + green * rim * 0.45;',
+    '  if(isClipCap){vec3 axisCol=uClipAxis<1.5?vec3(0.1333,0.8275,0.9333):uClipAxis<2.5?vec3(0.9098,0.4745,0.9765):vec3(0.9804,0.8000,0.0824);col=mix(col,axisCol,0.30);}',
     '  col = mix(bgCol, col, exp(-t * 0.010));',
     '  fragColor = vec4(clamp(col, 0.0, 1.0), 1.0);',
     '}'
@@ -1673,6 +1687,9 @@ Raymarcher.prototype._activateProgram = function(prg) {
   this.uBeamCount = gl.getUniformLocation(prg, 'beamCount');
   this.uRadius    = gl.getUniformLocation(prg, 'uRadius');
   this.uTile      = gl.getUniformLocation(prg, 'uTile');
+  this.uClipAxis  = gl.getUniformLocation(prg, 'uClipAxis');
+  this.uClipPos   = gl.getUniformLocation(prg, 'uClipPos');
+  this.uClipSide  = gl.getUniformLocation(prg, 'uClipSide');
 };
 
 Raymarcher.prototype._uploadCatalog = function(topology) {
@@ -1945,6 +1962,9 @@ Raymarcher.prototype.render = function() {
   gl.uniform2f(this.uRes, w, h);
   gl.uniformMatrix3fv(this.uRot, false, new Float32Array(this.rotMat));
   gl.uniform1f(this.uZoom, this.camZoom);
+  if (this.uClipAxis) gl.uniform1f(this.uClipAxis, clipState.axis);
+  if (this.uClipPos) gl.uniform1f(this.uClipPos, clipState.pos);
+  if (this.uClipSide) gl.uniform1f(this.uClipSide, clipState.side);
   if (this.currentParams) {
     gl.uniform1f(this.uRadius, this.currentParams.radius);
     gl.uniform1f(this.uTile, this.currentParams.tile || 1);
@@ -1954,6 +1974,7 @@ Raymarcher.prototype.render = function() {
   gl.uniform1i(this.uBeamCount, this.beamCount);
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   drawAxisGizmo(this.rotMat, this.canvas.clientWidth, this.canvas.clientHeight, this.camZoom);
+  drawClipHandle(this.rotMat, this.canvas.clientWidth, this.canvas.clientHeight, this.camZoom, (this.currentParams && this.currentParams.tile) || 1);
   this._dirty = false;
 };
 
@@ -1986,6 +2007,11 @@ Raymarcher.prototype._startLoop = function() {
 // Returns the projection function and ctx so callers (Builder picker) can use them.
 var lastProject = null;  // populated each frame; used by Builder picking math
 
+var clipState={axis:0,pos:0.0,side:1};
+function onClipPill(axis){if(clipState.axis===axis){clipState.axis=0;}else{clipState.axis=axis;clipState.pos=0.0;clipState.side=1;}updateClipPills();if(raymarcher)raymarcher._dirty=true;}
+function updateClipPills(){var cols={1:'#22d3ee',2:'#e879f9',3:'#facc15'},nm={1:'X',2:'Y',3:'Z'};[1,2,3].forEach(function(a){var el=document.getElementById('clipPill'+nm[a]);if(!el)return;if(clipState.axis===a){el.classList.add('active');el.style.color=cols[a];el.style.borderColor=cols[a];}else{el.classList.remove('active');el.style.color='#555';el.style.borderColor='#2a2a3a';}});}
+function setupClipHandleDrag(){var el=document.getElementById('clipHandleHit');if(!el||el.__wired)return;el.__wired=true;var lx=0,ly=0,sc=false;el.addEventListener('pointerdown',function(e){var hs=window.__clipHandleScreen;if(!hs)return;sc=true;lx=e.clientX;ly=e.clientY;try{el.setPointerCapture(e.pointerId);}catch(_){}e.preventDefault();e.stopPropagation();});el.addEventListener('pointermove',function(e){if(!sc)return;var hs=window.__clipHandleScreen;if(!hs)return;var pd=(e.clientX-lx)*hs.dirx+(e.clientY-ly)*hs.diry;var dPos=(pd*(hs.axisStep/(hs.len||1)))/(hs.hHalf||1);clipState.pos=Math.max(-1.0,Math.min(1.0,clipState.pos+dPos));lx=e.clientX;ly=e.clientY;if(raymarcher)raymarcher._dirty=true;e.preventDefault();e.stopPropagation();});function end(e){if(sc){sc=false;try{el.releasePointerCapture(e.pointerId);}catch(_){}}}el.addEventListener('pointerup',end);el.addEventListener('pointercancel',end);}
+function drawClipHandle(rotMat,canvasW,canvasH,camZoom,hHalf){var hit=document.getElementById('clipHandleHit');window.__clipHandleScreen=null;if(clipState.axis<1){if(hit)hit.style.display='none';return;}var cv=document.getElementById('axisCanvas');if(!cv){return;}var ctx=cv.getContext('2d');var H_HALF=hHalf||1;function proj(p){var tx=rotMat[0]*p[0]+rotMat[1]*p[1]+rotMat[2]*p[2];var ty=rotMat[3]*p[0]+rotMat[4]*p[1]+rotMat[5]*p[2];var tz=rotMat[6]*p[0]+rotMat[7]*p[1]+rotMat[8]*p[2];var pcz=tz-camZoom;if(pcz>-0.1)return null;var sscl=Math.min(canvasW,canvasH);return [canvasW/2+(-1.6*tx/pcz)*sscl,canvasH/2-(-1.6*ty/pcz)*sscl];}var aIdx=clipState.axis-1,cp=clipState.pos*H_HALF;var c=[0,0,0];c[aIdx]=cp;var sc=proj(c);if(!sc){if(hit)hit.style.display='none';return;}var col=['#22d3ee','#e879f9','#facc15'][aIdx];ctx.save();var free=[0,1,2].filter(function(k){return k!==aIdx;});var sg=[[-1,-1],[1,-1],[1,1],[-1,1]];var pts=sg.map(function(g){var p=[0,0,0];p[aIdx]=cp;p[free[0]]=g[0]*H_HALF;p[free[1]]=g[1]*H_HALF;return proj(p);});if(pts.every(Boolean)){ctx.globalAlpha=0.5;ctx.lineWidth=1.5;ctx.strokeStyle=col;ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);ctx.lineTo(pts[1][0],pts[1][1]);ctx.lineTo(pts[2][0],pts[2][1]);ctx.lineTo(pts[3][0],pts[3][1]);ctx.closePath();ctx.stroke();}ctx.globalAlpha=0.95;ctx.lineWidth=2;ctx.strokeStyle=col;ctx.beginPath();ctx.arc(sc[0],sc[1],9,0,6.2832);ctx.stroke();ctx.globalAlpha=1;ctx.fillStyle=col;ctx.beginPath();ctx.arc(sc[0],sc[1],3.2,0,6.2832);ctx.fill();ctx.restore();var e=[0,0,0];e[aIdx]=cp+0.4;var se=proj(e);var dirx=0,diry=0,len=0;if(se){var dx=se[0]-sc[0],dy=se[1]-sc[1];len=Math.hypot(dx,dy)||1;dirx=dx/len;diry=dy/len;}window.__clipHandleScreen={x:sc[0],y:sc[1],dirx:dirx,diry:diry,len:len,axisStep:0.4,hHalf:H_HALF};if(hit){hit.style.left=sc[0]+'px';hit.style.top=sc[1]+'px';hit.style.display='block';}}
 function drawAxisGizmo(rotMat, canvasW, canvasH, camZoom) {
   var cv = document.getElementById('axisCanvas');
   if (!cv) return;
@@ -3267,6 +3293,8 @@ document.addEventListener('DOMContentLoaded', function() {
   var glEl = document.getElementById('glCanvas');
   if (!glEl) { console.error('Canvas missing'); return; }
   raymarcher = new Raymarcher(glEl);
+  setupClipHandleDrag();
+  updateClipPills();
   if (!raymarcher.gl) {
     console.warn('WebGL unavailable');
     return;
