@@ -619,21 +619,23 @@ sub,sup{font-size:11px;line-height:0}
         <p class="note box" id="bldHomogStatus">Sharing-weighted DSM-PBC, frame elements. Material above. <strong>Validation:</strong> within 65–100% of literature for known cells; treat as engineering guidance.</p>
       </div>
 
-      <h3 class="sub-h">export</h3>
+      <!-- export: with widgets, JSON / LTCX / CSV live in the header Recipe menu and these buttons are the hidden native targets (data-native) -->
       <div data-mode="library">
+        <h3 class="sub-h">export size</h3>
         <div class="sc-group sl" id="grp-cell" data-w-slider="cell">
           <label for="cell">cell size</label>
           <span class="sv" id="cellValue">1.50</span>
           <input type="range" id="cell" min="0.5" max="3.0" step="0.05" value="1.5" oninput="onParamChange(this,'cellValue')">
         </div>
-        <div class="btn-row">
+        <div class="btn-row" data-native="export">
           <button id="exportBtn" class="btn" onclick="onExportJSON()">JSON</button>
           <button id="exportLtcxBtn" class="btn" onclick="onExportLTCX()">LTCX</button>
           <button id="exportCsvBtn" class="btn" onclick="onExportCSV()">CSV</button>
         </div>
       </div>
       <div data-mode="builder">
-        <div class="btn-row">
+        <h3 class="sub-h" data-native="export">export</h3>
+        <div class="btn-row" data-native="export">
           <button id="bldExportBtn" class="btn" onclick="bldExportJSON()">JSON</button>
           <button id="bldExportLtcxBtn" class="btn" onclick="bldExportLTCX()">LTCX</button>
           <button id="bldExportCsvBtn" class="btn" onclick="bldExportCSV()">CSV</button>
@@ -6825,11 +6827,19 @@ function bldPushToLibrary() {
   var n = 1;
   var baseSlug = slug;
   while (BEAM_CATALOGS[slug]) { n++; slug = baseSlug + '_' + n; }
-  // Add to in-memory catalog
-  BEAM_CATALOGS[slug] = Builder.beams.map(function(b){ return b.slice(); });
-  TOPO_DESC[slug] = 'User-built (' + Builder.beams.length + ' beams).';
+  registerCustomCell(slug, name, Builder.beams);
+  document.getElementById('topology').value = slug;
+  switchTab('library');
+  onTopologyChange();
+}
+
+// Add (or replace) a user-built cell in the Library catalog under the exact key `slug`
+// and in the topology dropdown's "Custom" group. Does not select it. Shared by
+// bldPushToLibrary and recipe import (a pushed custom cell comes back under its own key).
+function registerCustomCell(slug, name, beams) {
+  BEAM_CATALOGS[slug] = beams.map(function(b){ return b.slice(); });
+  TOPO_DESC[slug] = 'User-built (' + beams.length + ' beams).';
   sessionCustomCells[slug] = { name: name, beams: BEAM_CATALOGS[slug] };
-  // Add to dropdown under a "Custom" optgroup, creating it if needed
   var sel = document.getElementById('topology');
   var customGroup = null;
   for (var i = 0; i < sel.children.length; i++) {
@@ -6840,13 +6850,16 @@ function bldPushToLibrary() {
     customGroup.label = 'Custom';
     sel.appendChild(customGroup);
   }
-  var opt = document.createElement('option');
-  opt.value = slug;
+  var opt = null;
+  for (var j = 0; j < customGroup.children.length; j++) {
+    if (customGroup.children[j].value === slug) { opt = customGroup.children[j]; break; }
+  }
+  if (!opt) {
+    opt = document.createElement('option');
+    opt.value = slug;
+    customGroup.appendChild(opt);
+  }
   opt.textContent = name;
-  customGroup.appendChild(opt);
-  sel.value = slug;
-  switchTab('library');
-  onTopologyChange();
 }
 
 // ─── Geometry helpers (symmetry + picking math) ───────────────────────────
@@ -7102,7 +7115,26 @@ document.addEventListener('DOMContentLoaded', function() {
 html.f13w{--rail-w:72px}
 html.f13w [data-native]{display:none!important}
 
-/* stage 5: the template header block (Recipe menu) is added when the Recipe menu is mounted */
+/* header: the Recipe menu replaces Queue / Mesh / Lab / Export; the queue client's own buttons stay
+   mounted (invisible, no pointer) so its menus and feedback still work when a Recipe item triggers them */
+html.f13w #w-recipe{flex:none}
+html.f13w .fh-right>.f13ldq-split,html.f13w .fh-right>.f13ldq-main{position:absolute;right:14px;top:calc(env(safe-area-inset-top) + 8px);pointer-events:none;z-index:-1}
+html.f13w .fh-right>.f13ldq-split>.f13ldq-main,html.f13w .fh-right>.f13ldq-split>.f13ldq-caret,html.f13w .fh-right>.f13ldq-main{opacity:0}
+html.f13w .fh-right>.f13ldq-split>:not(.f13ldq-main):not(.f13ldq-caret){pointer-events:auto}
+html.f13w #f13ldq-fallback{display:none}
+html.f13w .fh-mesh-btn{display:none}
+@media (max-width:560px){
+  html.f13w .f13ld-header{flex-wrap:nowrap;padding:0 10px;padding-top:env(safe-area-inset-top);column-gap:8px}
+  html.f13w .f13ld-header::after{display:none}
+  html.f13w .fh-left{gap:8px;flex:none}
+  html.f13w .fh-right{display:flex;gap:6px}
+}
+@media (max-width:380px){
+  html.f13w .f13ld-header{column-gap:4px;padding-left:8px;padding-right:8px}
+  html.f13w .fh-divider{display:none}
+  html.f13w .fh-left{gap:6px}
+  html.f13w .fh-right{gap:3px}
+}
 
 /* sliders: the widget carries label · value · hint · track; the row keeps only .row-extra.
    Hit geometry: the track's hit box runs 4px below the widget, the value's 4px above it. */
@@ -7157,7 +7189,6 @@ html.f13w #termlist .sw.tog{display:none}           rebuilt rows: hide natives b
 
 /* ── beam ── */
 html.f13w #sectionsRail .sb-fallback,html.f13w #sectionsBar .sb-fallback{display:none}   /* stage 2 fallback tabs → sections widget */
-html.f13w .fh-mesh-btn[data-native=send]{display:inline-flex!important}   /* Mesh / Lab stay visible until the Recipe menu (stage 5) */
 html.f13w #w-source,html.f13w #w-tile,html.f13w #w-bldtile,html.f13w #w-snap,html.f13w #w-edit,html.f13w #w-topology,html.f13w #w-sym{width:100%}
 html.f13w #grp-radius,html.f13w #grp-bldradius,html.f13w #grp-cell{margin:6px 0 10px}
 </style>
@@ -7215,12 +7246,19 @@ html.f13w #grp-radius,html.f13w #grp-bldradius,html.f13w #grp-cell{margin:6px 0 
     viewMenu:true,
     run:null,                          // no run button
     clip:{host:'w-clip',get:()=>clipState.axis,set:n=>{if(clipState.axis!==n)onClipPill(n||clipState.axis);}},
-    recipe:null,                       // Recipe menu, Export, Queue, Mesh, Lab stay as they are until stage 5
+    recipe:{host:'w-recipe',
+      // the Recipe menu follows the active mode: Library sends 'beam', Builder 'beam-builder'.
+      // The natives stay hidden as the action targets (their click keeps the exact old behaviour).
+      exportBtn:()=>$(currentTab==='builder'?'bldExportBtn':'exportBtn'),
+      extra:[{id:'ltcx',label:'Export LTCX',icon:'ltcx',done:'LTCX saved.',btn:()=>$(currentTab==='builder'?'bldExportLtcxBtn':'exportLtcxBtn')},
+             {id:'csv',label:'Export CSV',icon:'table',done:'CSV saved.',btn:()=>$(currentTab==='builder'?'bldExportCsvBtn':'exportCsvBtn')}],
+      natives:['exportBtn','exportLtcxBtn','exportCsvBtn','bldExportBtn','bldExportLtcxBtn','bldExportCsvBtn'],
+      mesh:()=>openInMesh(),lab:()=>openInLab()},
     helpTargets:{
       tabs:'#grp-source',topology:'#grp-topology',radius:'#grp-radius',cell:'#grp-cell',tiling:'#grp-tile',
-      matE:'#grp-matE',matNu:'#grp-matNu',stiffness:'#stiffSurfCv',export:'#exportBtn',
+      matE:'#grp-matE',matNu:'#grp-matNu',stiffness:'#stiffSurfCv',export:'#w-recipe',
       cellname:'#bldCellName',snap:'#grp-snap',edit:'#grp-edit',bldradius:'#grp-bldradius',
-      symmetry:'#grp-symmetry',history:'#grp-history',bldtiling:'#grp-bldtile',bldexport:'#bldExportBtn'
+      symmetry:'#grp-symmetry',history:'#grp-history',bldtiling:'#grp-bldtile',bldexport:'#w-recipe'
     }
   };
   /* ============ END PER-TOOL CONFIG ==================================== */
@@ -7382,20 +7420,27 @@ html.f13w #grp-radius,html.f13w #grp-bldradius,html.f13w #grp-cell{margin:6px 0 
     I.recipe=I.recipe||'<path d="M14 3.5H7.5a1 1 0 0 0-1 1v15a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1V7z"/><path d="M14 3.5V7h3.5"/><path d="M10 17.5v-6M8 13.3l2-2 2 2"/><path d="M14 11v6.2M12 15.2l2 2 2-2"/>';
     I.open=I.open||'<path d="M12 15.5V4.6M7.2 9.2 12 4.4l4.8 4.8"/><path d="M5 19.5h14"/>';
     const qMain=()=>document.querySelector('.fh-right .f13ldq-main'),qCaret=()=>document.querySelector('.fh-right .f13ldq-caret');
-    const exportBtn=$(R.exportBtn);if(exportBtn)exportBtn.setAttribute('data-native','export');
+    I.ltcx=I.ltcx||'<circle cx="7" cy="7" r="2"/><circle cx="17" cy="7" r="2"/><circle cx="12" cy="17" r="2"/><path d="M9 7h6M8.2 8.8l2.6 6.4M15.8 8.8l-2.6 6.4"/>';
+    I.table=I.table||'<rect x="4.5" y="5" width="15" height="14" rx="2.5"/><path d="M4.5 10h15M10 10v9"/>';
+    // R.exportBtn is a function (the active mode's native JSON button); R.extra: more exports, each a native button too
+    const nat=x=>typeof x==='function'?x():$(x);
+    (R.natives||[]).forEach(id=>{const n=$(id);if(n)n.setAttribute('data-native','export');});
+    const exportBtn=nat(R.exportBtn);
+    const EX={};(R.extra||[]).forEach(x=>EX[x.id]=x);
     const ACTIONS={
       open(){if(window.F13Recipe)F13Recipe.open();},
-      json(){if(exportBtn)exportBtn.click();},
+      json(){const b=nat(R.exportBtn);if(b)b.click();},
       queue(){const m=qMain();if(m)m.click();else say('Queue is still loading — try again in a moment.');},
       choose(){const c=qCaret();if(c)c.click();},
       mesh(){R.mesh();},lab(){R.lab();}
     };
-    const jsonLabel=()=>exportBtn?exportBtn.textContent.trim().replace(/^Copied.*$/,'Export JSON'):'Export JSON';
+    (R.extra||[]).forEach(x=>{ACTIONS[x.id]=()=>{const b=nat(x.btn);if(b)b.click();};});
     function items(){
       const real=!!qMain(),choose=real&&!!qCaret(),offline=!real&&!!$('f13ldq-fallback');
       const it=[];
       if(window.F13Recipe)it.push({id:'open',label:'Open recipe…',icon:'open'});
-      if(exportBtn)it.push({id:'json',label:jsonLabel(),icon:'download'});
+      if(exportBtn)it.push({id:'json',label:'Export JSON',icon:'download'});
+      (R.extra||[]).forEach(x=>it.push({id:x.id,label:x.label,icon:x.icon}));
       it.push({id:'queue',label:offline?'Queue (offline)':'Queue',icon:'queue',disabled:offline});
       if(choose)it.push({id:'choose',label:'Choose queue…',icon:'folder'});
       if(R.mesh)it.push({id:'mesh',label:'Mesh',icon:'layers'});
@@ -7410,7 +7455,10 @@ html.f13w #grp-radius,html.f13w #grp-bldradius,html.f13w #grp-cell{margin:6px 0 
       sync();const m=qMain(),t=m?m.textContent.trim():'Queue';
       if(t!==qText){qText=t;if(t&&t!=='Queue')say(t);}
     });
-    if(exportBtn)watch(exportBtn,()=>{const t=exportBtn.textContent.trim();if(/^Copied/.test(t))say('Recipe JSON copied and downloaded.');else W.recipe.setItemState('json',{label:t});});
+    // the native buttons flash 'Copied' / 'Saved' when an export ran: say it in the header message
+    (R.natives||[]).forEach(id=>{const n=$(id);if(!n)return;
+      const done=/Ltcx/.test(id)?'LTCX saved.':/Csv/.test(id)?'CSV saved.':'Recipe JSON copied and downloaded.';
+      watch(n,()=>{if(/^(Copied|Saved)/.test(n.textContent.trim()))say(done);});});
     // F13Recipe loads after this block: refresh once the document has parsed (and on load, for late scripts)
     if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',sync);else setTimeout(sync,0);
     window.addEventListener('load',sync);
@@ -7490,6 +7538,252 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
 </script>
 
 <!-- ===================================================================== -->
+<style id="f13-recipe-style">
+/* F13LD UI template · recipe-import.css (drop overlay + header message extras), from F13LD.tpms v1.4.0 */
+.f13r-drop{position:fixed;inset:0;z-index:1200;display:grid;place-items:center;pointer-events:none;opacity:0;visibility:hidden;
+  background:oklch(0.10 0.01 265 / 0.6);transition:opacity 160ms ease-out,visibility 0s linear 160ms}
+.f13r-drop.on{opacity:1;visibility:visible;transition:opacity 160ms ease-out}
+.f13r-drop::before{content:'';position:absolute;inset:max(12px,env(safe-area-inset-top)) 12px max(12px,env(safe-area-inset-bottom));border-radius:24px;
+  box-shadow:inset 0 0 0 2px var(--accent),inset 0 0 40px var(--accent-soft),0 0 0 6px var(--accent-soft)}
+.f13r-card{position:relative;display:flex;align-items:center;gap:14px;padding:14px 22px 14px 14px;border-radius:24px;background:var(--card);
+  box-shadow:inset 0 1px 0 oklch(1 0 0 / 0.06),0 2px 0 oklch(0 0 0 / 0.35),0 18px 40px oklch(0 0 0 / 0.45);
+  transform:translateY(8px) scale(.96);transition:transform 220ms cubic-bezier(.3,1.4,.5,1)}
+.f13r-drop.on .f13r-card{transform:none}
+.f13r-drop-ic{flex:none;display:grid;place-items:center;width:48px;height:48px;border-radius:50%;color:var(--accent-ink);
+  background:radial-gradient(circle at 34% 28%,oklch(0.98 0.07 123) 0,var(--accent) 46%,oklch(0.74 0.17 128) 100%);
+  box-shadow:0 0 22px var(--accent-line),inset 0 -3px 6px oklch(0.5 0.12 128 / 0.35)}
+.f13r-drop-ic svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2.1;stroke-linecap:round;stroke-linejoin:round}
+.f13r-card b{display:block;font:650 15px/20px var(--lq-font);color:var(--ink)}
+.f13r-card small{display:block;font:400 13px/18px var(--lq-font);color:var(--ink-dim)}
+@media (prefers-reduced-motion:reduce){.f13r-card{transform:none;transition:none}}
+.hdr-msg-act{position:relative;margin:0;padding:0;border:0;background:none;color:var(--accent);font:600 13px/1.45 var(--lq-font);cursor:pointer}
+.hdr-msg-act::after{content:'';position:absolute;left:50%;top:50%;width:max(100%,44px);height:44px;transform:translate(-50%,-50%)}
+.hdr-msg-act:hover{text-decoration:underline;text-underline-offset:3px}
+.hdr-msg-note{margin-top:4px;color:var(--ink-dim);font-size:13px}
+</style>
+<script id="f13-recipe-import">
+/* ============================================================================
+   F13LD UI template · recipe-import.js — round-trip import of exported recipe JSON (design tools).
+   Extracted from F13LD.tpms v1.4.0 #f13-recipe-import. The GENERIC half is identical across tools;
+   only the PER-TOOL block changes. Entry points: Recipe → Open recipe…, drag-and-drop a .json
+   anywhere, paste recipe JSON outside text fields. Undo via the header message.
+   ========================================================================== */
+(function(){
+  'use strict';
+  const $=id=>document.getElementById(id);
+
+  /* ============ PER-TOOL ============================================== */
+  // beam exports two formats and imports both: 'beam' (Library: topology + radius + cell) and
+  // 'beam-builder' (Builder: beams + cell name + radius). The Recipe menu sends the active mode's recipe.
+  // Tiling, snap density, symmetry, edit mode and the ghost are not exported, so they are not restored.
+  // Not restored: metrics.*, beam counts and every homogenization RESULT (the app recomputes them).
+  // The only input stored inside homogenization is the parent material (Es_MPa, nu_s): restored.
+  const RAD={lo:0.02,hi:0.30,step:0.005,def:0.10},CELL={lo:0.5,hi:3.0,step:0.05,def:1.5};
+  const ES={lo:100,hi:2e6,def:113000},NU={lo:-0.99,hi:0.49,def:0.34};
+  const MAXBEAMS=256;
+  const own=(o,k)=>Object.prototype.hasOwnProperty.call(o,k);
+  const num=v=>typeof v==='number'&&isFinite(v)?v:(typeof v==='string'&&v.trim()!==''&&isFinite(+v)?+v:null);
+  // value → clamped (warning) and snapped to the slider step (quiet); missing / not a number → default
+  function limit(v,R,name,warn,step){
+    let x=num(v);
+    if(x===null){if(v!==undefined&&v!==null)warn(name+' is not a number: kept '+R.def+'.');return R.def;}
+    if(x<R.lo){warn(name+' '+x+' is below '+R.lo+': clamped.');x=R.lo;}
+    else if(x>R.hi){warn(name+' '+x+' is above '+R.hi+': clamped.');x=R.hi;}
+    if(step)x=Math.min(R.hi,+(R.lo+Math.round((x-R.lo)/step)*step).toFixed(4));
+    return x;
+  }
+  function cleanBeams(a,warn){
+    if(!Array.isArray(a))return null;
+    const out=[];let bad=0,clamp=false,over=false;
+    a.forEach(b=>{
+      if(!Array.isArray(b)||b.length<6){bad++;return;}
+      const c=[];
+      for(let i=0;i<6;i++){let n=num(b[i]);if(n===null){bad++;return;}
+        if(n<-1||n>1){n=Math.max(-1,Math.min(1,n));clamp=true;}c.push(n);}
+      if(out.length>=MAXBEAMS){over=true;return;}
+      out.push(c);
+    });
+    if(bad)warn(bad+' beam'+(bad>1?'s':'')+' skipped (not six numbers).');
+    if(clamp)warn('Beam coordinates outside [-1, 1] were clamped.');
+    if(over)warn('Only the first '+MAXBEAMS+' beams were loaded.');
+    return out;
+  }
+  const sameBeams=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+  const prettyKey=k=>String(k).replace(/^custom_/,'').replace(/_+/g,' ').trim()||'Custom Cell';
+  function material(r,warn,snap){
+    const m=snap&&snap.mat||(r.homogenization&&typeof r.homogenization==='object'&&r.homogenization.material);
+    if(!m||typeof m!=='object')return null;
+    const out={};
+    if(m.Es_MPa!==undefined||m.E!==undefined){const e=limit(m.Es_MPa!==undefined?m.Es_MPa:m.E,ES,'Eₛ',warn);out.E=e;}
+    if(m.nu_s!==undefined||m.nu!==undefined){const n=limit(m.nu_s!==undefined?m.nu_s:m.nu,NU,'νₛ',warn);out.nu=n;}
+    return out.E===undefined&&out.nu===undefined?null:out;
+  }
+  // Undo snapshots carry both modes' inputs (r.__snap, in memory only), so one Undo restores the mode
+  // you were in and the other mode's cell (an imported Builder cell overwrites the Builder beams).
+  function snapNow(){
+    const t=$('topology').value,cu=own(sessionCustomCells,t)?sessionCustomCells[t]:null;
+    return {
+      mat:{E:materialEs,nu:materialNu},
+      lib:{topology:t,radius:parseFloat($('radius').value),cell:parseFloat($('cell').value),
+           custom:cu?{key:t,name:cu.name,beams:BEAM_CATALOGS[t].map(b=>b.slice())}:null},
+      bld:{beams:Builder.beams.map(b=>b.slice()),name:$('bldCellName').value,radius:Builder.radius}
+    };
+  }
+  let lastLabel='cell';
+  // plan(r, warn, tag): validate + normalise. Never touches the app.
+  function plan(r,warn,tag){
+    if(r.__snap){   // our own Undo snapshot: trusted
+      const s=r.__snap;lastLabel=label(tag==='beam-builder'?'builder':'library',tag==='beam-builder'?s.bld.name:s.lib.topology);
+      return {mode:tag==='beam-builder'?'builder':'library',lib:s.lib,bld:s.bld,mat:s.mat,label:lastLabel};
+    }
+    const hasTopo=r.topology&&typeof r.topology==='object'&&typeof r.topology.name==='string'&&r.topology.name;
+    const mode=tag==='beam'?'library':tag==='beam-builder'?'builder':(hasTopo?'library':'builder');
+    const geo=r.geometry&&typeof r.geometry==='object'?r.geometry:{};
+    const P={mode,mat:material(r,warn)};
+    if(r.geometry!==undefined&&(typeof r.geometry!=='object'||r.geometry===null))warn('geometry is not an object: defaults used.');
+    if(mode==='library'){
+      if(!hasTopo)throw new Error('This beam recipe has no topology name.');
+      const key=String(r.topology.name);
+      const beams=Array.isArray(r.beams)?cleanBeams(r.beams,()=>{}):null;
+      let custom=null;
+      if(own(BEAM_CATALOGS,key)){
+        // a custom cell from this session (pushed from the Builder or imported before): the recipe's beams win
+        if(own(sessionCustomCells,key)&&beams&&beams.length&&!sameBeams(beams,BEAM_CATALOGS[key])){
+          custom={key,name:sessionCustomCells[key].name,beams:cleanBeams(r.beams,warn)};warn('Custom cell “'+key+'” was replaced by the recipe’s beams.');}
+      }else{
+        if(!/^[A-Za-z0-9_.\-]{1,64}$/.test(key))throw new Error('Unknown topology “'+key.slice(0,40)+'”.');
+        if(!beams||!beams.length)throw new Error('Unknown topology “'+key+'”, and the recipe has no beams to build it from.');
+        custom={key,name:prettyKey(key),beams:cleanBeams(r.beams,warn)};
+      }
+      P.lib={topology:key,custom,radius:limit(geo.radius,RAD,'radius',warn,RAD.step),cell:limit(geo.cell,CELL,'cell size',warn,CELL.step)};
+      P.label=lastLabel=label('library',key);
+    }else{
+      if(!Array.isArray(r.beams))throw new Error('This Builder recipe has no beams.');
+      const beams=cleanBeams(r.beams,warn);
+      const cn=r.cell&&typeof r.cell==='object'&&typeof r.cell.name==='string'?r.cell.name.slice(0,80):'Custom Cell';
+      if(geo.cell!==undefined&&num(geo.cell)!==1.5)warn('Builder cells always use cell size 1.5: that value was ignored.');
+      P.bld={beams,name:cn,radius:limit(geo.radius,RAD,'radius',warn,RAD.step)};
+      P.label=lastLabel=label('builder',cn);
+    }
+    return P;
+  }
+  const label=(mode,name)=>(mode==='builder'?'Builder cell':'Library cell')+' “'+name+'”';
+  // apply(plan, warn, tag): set state through the app's own variables / natives in dependency order, then ONE
+  // rebuild + ONE solve through switchTab (Library: raymarcher.setParams + updateMetrics; Builder: Builder.refresh).
+  function apply(P){
+    if(P.mat){
+      if(P.mat.E!==undefined){materialEs=P.mat.E;$('matE').value=P.mat.E;}
+      if(P.mat.nu!==undefined){materialNu=P.mat.nu;$('matNu').value=P.mat.nu;}   // set directly: onMatChange turns nu = 0 into 0.34
+    }
+    if(P.bld){
+      Builder.loadBeams(P.bld.beams);
+      Builder.cellName=P.bld.name;$('bldCellName').value=P.bld.name;
+      Builder.radius=P.bld.radius;$('bldRadius').value=P.bld.radius;$('bldRadiusValue').textContent=P.bld.radius.toFixed(3);
+    }
+    if(P.lib){
+      if(P.lib.custom)registerCustomCell(P.lib.custom.key,P.lib.custom.name,P.lib.custom.beams);
+      const sel=$('topology');sel.value=P.lib.topology;
+      if(sel.value!==P.lib.topology)throw new Error('topology “'+P.lib.topology+'” is not in the list');
+      $('radius').value=P.lib.radius;$('radiusValue').textContent=P.lib.radius.toFixed(3);
+      $('cell').value=P.lib.cell;$('cellValue').textContent=P.lib.cell.toFixed(2);
+      updateTopoDescription();
+    }
+    switchTab(P.mode);
+  }
+  const TOOL={
+    id:['beam','beam-builder'],      // meta.tool values: NEVER rename (Lab and Mesh route on both). No new tags, no family key.
+    name:'F13LD.beam',major:0,       // exports say 0.2.1; 1.x and newer are 'newer than this tool'
+    exportRecipe:()=>{const r=activeRecipe();r.__snap=snapNow();return r;},   // the active mode (and, in memory, both modes' inputs)
+    // untagged: a Library recipe is topology.name + geometry.radius (old versions had no beams[]); a Builder one is beams[] + cell.name
+    looksLike:r=>!!r.geometry&&typeof r.geometry==='object'&&num(r.geometry.radius)!==null&&
+      (!!(r.topology&&r.topology.name)||(Array.isArray(r.beams)&&!!(r.cell&&r.cell.name))),
+    plan,apply,
+    label:()=>lastLabel
+  };
+  /* ============ END PER-TOOL =========================================== */
+
+  /* ============ GENERIC (identical across F13LD tools) ================== */
+  // legacy meta.tool values still in use (never rename them: Lab and Mesh route on them)
+  const LEGACY={'noise-scaffold-explorer':'F13LD.noise',grain:'F13LD.grain',beam:'F13LD.beam','beam-builder':'F13LD.beam','bundle-builder':'F13LD.bundle'};
+  const toolName=t=>LEGACY[String(t).toLowerCase()]||String(t).replace(/^f13ld\./i,'F13LD.');
+  const say=(t,o)=>setTimeout(()=>{if(window.F13UI&&F13UI.message)F13UI.message(t,o);},0);
+  // TOOL.id is one meta.tool value or a list of them (first = canonical). tagOf(r) → the listed value this
+  // recipe carries (lower-case, as listed), or null (no tag, or a foreign one).
+  const tagOf=r=>{const t=r&&r.meta&&r.meta.tool;if(typeof t!=='string'||!t)return null;
+    const k=t.toLowerCase();return [].concat(TOOL.id).map(x=>String(x).toLowerCase()).indexOf(k)<0?null:k;};
+  function check(r){
+    if(!r||typeof r!=='object'||Array.isArray(r))return 'Not a recipe.';
+    if(!r.meta||typeof r.meta!=='object')return 'Not a recipe: it has no meta block.';
+    const tool=r.meta.tool;
+    if(typeof tool==='string'&&tool&&tagOf(r)===null)return 'This recipe is from '+toolName(tool)+'. Open it there.';
+    if(!tool&&!TOOL.looksLike(r))return 'Not an '+TOOL.name+' recipe.';
+    return '';
+  }
+  // → {ok, warnings, error?, label?, before?}. Unknown keys are ignored; nothing changes unless ok.
+  function applyRecipe(r){
+    const warnings=[],warn=m=>{if(warnings.indexOf(m)<0)warnings.push(m);};
+    const err=check(r);if(err)return {ok:false,error:err,warnings};
+    const v=String(r.meta.version||'1.0');
+    if(parseInt(v,10)>TOOL.major)warn('Made by a newer '+TOOL.name+' ('+v+'); parts it does not know were skipped.');
+    const tag=tagOf(r);   // which listed meta.tool matched (null for untagged recipes); passed to plan and apply
+    let P;try{P=TOOL.plan(r,warn,tag);}catch(e){return {ok:false,error:e.message,warnings};}
+    const before=TOOL.exportRecipe(),btag=tagOf(before);
+    try{TOOL.apply(P,warn,tag);}
+    catch(e){console.error(e);try{TOOL.apply(TOOL.plan(before,()=>{},btag),()=>{},btag);}catch(_){}
+      return {ok:false,error:'Could not apply this recipe ('+e.message+').',warnings};}
+    return {ok:true,warnings,label:TOOL.label(),before};
+  }
+  function importRecipe(r){
+    const res=applyRecipe(r);
+    if(!res.ok){say(res.error);return res;}
+    const w=res.warnings,note=w.length?w.slice(0,3).join(' · ')+(w.length>3?' · +'+(w.length-3)+' more':''):'';
+    say('Imported '+res.label,{note,action:{label:'Undo',run:()=>{
+      const u=applyRecipe(res.before);say(u.ok?'Back to '+u.label+'.':u.error);}}});
+    return res;
+  }
+  // source: 'file' | 'drop' | 'paste'. Pasted text that is not a recipe is ignored quietly.
+  function importText(text,source){
+    let r;
+    try{r=JSON.parse(text);}catch(e){if(source!=='paste')say('That file is not valid JSON.');return null;}
+    if(source==='paste'&&(!r||typeof r!=='object'||!r.meta||typeof r.meta!=='object'))return null;
+    return importRecipe(r);
+  }
+  function readFile(f){
+    if(!/\.json$/i.test(f.name)&&!/json/i.test(f.type)){say('Not a recipe file. Use a .json exported from '+TOOL.name+'.');return Promise.resolve(null);}
+    if(f.size>5e6){say('That file is too large to be a recipe.');return Promise.resolve(null);}
+    return f.text().then(t=>importText(t,'file'),()=>{say('Could not read that file.');return null;});
+  }
+  // Open recipe…
+  const fi=document.createElement('input');fi.type='file';fi.accept='.json,application/json';fi.hidden=true;fi.id='f13r-file';
+  document.body.appendChild(fi);
+  fi.addEventListener('change',()=>{const f=fi.files&&fi.files[0];fi.value='';if(f)readFile(f);});
+  // drop anywhere: overlay while a file is dragged over the window
+  const ov=document.createElement('div');ov.className='f13r-drop';ov.setAttribute('aria-hidden','true');
+  ov.innerHTML='<div class="f13r-card"><span class="f13r-drop-ic"><svg viewBox="0 0 24 24"><path d="M12 15.5V4.6M7.2 9.2 12 4.4l4.8 4.8"/><path d="M5 19.5h14"/></svg></span>'+
+    '<span><b>Drop to open recipe</b><small>'+TOOL.name+' .json</small></span></div>';
+  document.body.appendChild(ov);
+  const hasFiles=e=>!!(e.dataTransfer&&[...e.dataTransfer.types].indexOf('Files')>=0);
+  let hideT=0;
+  const overlay=on=>{clearTimeout(hideT);ov.classList.toggle('on',on);};
+  window.addEventListener('dragenter',e=>{if(hasFiles(e)){e.preventDefault();overlay(true);}});
+  window.addEventListener('dragover',e=>{if(!hasFiles(e))return;e.preventDefault();e.dataTransfer.dropEffect='copy';
+    overlay(true);hideT=setTimeout(()=>overlay(false),400);});   // dragover repeats while inside; silence = gone
+  window.addEventListener('dragleave',e=>{if(!e.relatedTarget)overlay(false);});
+  window.addEventListener('drop',e=>{if(!hasFiles(e))return;e.preventDefault();overlay(false);
+    const fs=[...e.dataTransfer.files],f=fs.find(x=>/\.json$/i.test(x.name))||fs[0];if(f)readFile(f);});
+  // paste (Ctrl/Cmd+V) outside text fields
+  const typing=t=>!!t&&(t.isContentEditable||/^(TEXTAREA|SELECT)$/.test(t.tagName)||
+    (t.tagName==='INPUT'&&!/^(checkbox|radio|range|button|submit|reset|file|color)$/i.test(t.type)));
+  document.addEventListener('paste',e=>{
+    if(typing(e.target)||typing(document.activeElement))return;
+    const s=((e.clipboardData&&e.clipboardData.getData('text/plain'))||'').trim();
+    if(s[0]!=='{'||s.length>5e6)return;
+    if(importText(s,'paste'))e.preventDefault();
+  });
+  window.F13Recipe={apply:applyRecipe,importRecipe,importText,readFile,open:()=>fi.click(),TOOL,tagOf};
+})();
+</script>
+
 <!-- ==========  F13LD HELP SYSTEM  ·  modular drop-in (v1.2)  ============ -->
 <!-- Per-tool parts: (1) #f13h-theme :root vars  (2) the CONFIG block.     -->
 <!-- The #f13h-style engine CSS and the script engine are identical        -->
