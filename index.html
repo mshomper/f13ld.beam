@@ -1,124 +1,309 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-mode="library">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Cubic Beam Lattice Library</title>
 <style>
+/* ============================================================================
+   F13LD.beam · shell (F13LD UI template shell.css, TPMS v1.4.0 standard) + beam rules at the end
+   ========================================================================== */
+/* ── Tokens (OKLCH). Depth comes from lighter surfaces: bg < panel < card < input. ── */
+:root{
+  --bg:oklch(0.13 0.012 265);
+  --panel:oklch(0.17 0.014 265);
+  --card:oklch(0.215 0.016 265);
+  --input:oklch(0.255 0.018 265);
+  --hair:oklch(1 0 0 / 0.09);
+  --hair-strong:oklch(1 0 0 / 0.17);
+  --ink:oklch(0.95 0.01 265);          /* 16.5:1 on panel */
+  --ink-dim:oklch(0.75 0.018 265);     /* 8.6:1 on panel  */
+  --ink-faint:oklch(0.60 0.018 265);   /* 4.8:1 on panel  */
+  /* PER-TOOL: beam olive, from brand stroke #4A5A0F (hue 121, lifted to L 0.80 for the dark UI) */
+  --accent:oklch(0.80 0.15 121);
+  --accent-ink:oklch(0.22 0.06 125);   /* dark text on the accent */
+  --accent-soft:oklch(0.80 0.15 121 / 0.14);
+  --accent-line:oklch(0.80 0.15 121 / 0.45);
+  --family:oklch(0.76 0.12 121);       /* tool-name colour in the header (the brand stroke is too dark on this background) */
+  --axis-x:oklch(0.797 0.134 211.5);   /* #22d3ee */
+  --axis-y:oklch(0.748 0.207 322.2);   /* #e879f9 */
+  --axis-z:oklch(0.861 0.173 91.9);    /* #facc15 */
+  --shear:oklch(0.78 0.12 290);
+  --warn:oklch(0.807 0.126 74.3);
+  --danger:oklch(0.68 0.19 25);
+  --viz:oklch(0.156 0.017 273.4);      /* = the stiffness surface shader background (#0a0c14) */
+  --lq-ink:var(--ink);--lq-ink-dim:var(--ink-dim);--lq-ink-faint:var(--ink-faint);
+  --lq-font:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --lq-mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --hdr-h:48px;
+  --pane-w:clamp(400px,30vw,440px);
+  --rail-w:56px;
+  --peek:45dvh;
+  --full:88dvh;
+  --ease:cubic-bezier(.4,0,.2,1);
+}
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{min-height:100%;background:#06080f;color:#e0e0ff;font-family:system-ui,sans-serif}
-#container{display:flex;flex-direction:column;height:100vh;max-width:1100px;margin:0 auto;width:100%}
-#cw{position:relative;background:#06080f;border-radius:12px 12px 0 0;overflow:hidden;border:0.5px solid #2a2a3a;flex:1;min-height:0;margin:16px 14px 0}
-canvas{display:block;width:100%;height:100%}
-#status{position:absolute;bottom:10px;left:10px;background:rgba(6,8,15,0.85);padding:5px 10px;border-radius:6px;font-size:11px;color:#555;pointer-events:none;border:0.5px solid #2a2a3a}
-#indicators{position:absolute;top:10px;left:10px;display:flex;gap:8px;flex-direction:column;pointer-events:none}
-#qualityOverlay{position:absolute;bottom:10px;right:10px;display:flex;gap:4px;z-index:10}
-#qualityOverlay button{background:rgba(6,8,15,0.85);color:#555;border:0.5px solid #2a2a3a;border-radius:5px;font-size:10px;padding:3px 7px;cursor:pointer;transition:color 0.15s,border-color 0.15s}
-#qualityOverlay button.active{color:#22d3ee;border-color:#22d3ee}
-.ind-pill{display:flex;align-items:center;gap:5px;background:rgba(6,8,15,0.85);padding:4px 8px;border-radius:6px;font-size:10px;border:0.5px solid #2a2a3a;white-space:nowrap}
-.ind-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
-.ind-label{color:#555;text-transform:uppercase;letter-spacing:0.06em}
-#panel{background:#111118;border:0.5px solid #2a2a3a;border-top:none;border-radius:0 0 12px 12px;padding:12px 14px;overflow-y:auto;max-height:52vh;margin:0 14px 14px}
-h1{font-size:13px;font-weight:500;color:#7c8aaa;letter-spacing:0.08em;text-transform:uppercase;margin:14px 14px 10px;flex-shrink:0}
-hr.divider{border:none;border-top:0.5px solid #2a2a3a;margin:10px 0}
-.sec-lbl{font-size:10px;color:#18f370;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:5px}
-.sc-group{display:flex;align-items:center;gap:6px;margin-bottom:22px}
-.sc-group label{font-size:12px;color:#888;white-space:nowrap;min-width:84px}
-.sc-group input[type=range]{flex:1;accent-color:#22d3ee;height:5px;background:#1a1a2e;border-radius:3px;outline:none;-webkit-appearance:none;appearance:none}
-.sc-group input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:26px;height:26px;background:#0e1a2e;border:2.5px solid #22d3ee;border-radius:50%;cursor:pointer;box-shadow:0 0 6px rgba(34,211,238,0.35)}
-.sc-group input[type=range]::-moz-range-thumb{width:26px;height:26px;background:#0e1a2e;border:2.5px solid #22d3ee;border-radius:50%;cursor:pointer;box-shadow:0 0 6px rgba(34,211,238,0.35)}
-.sc-group .sv{font-size:12px;font-weight:500;color:#e0e0ff;min-width:40px;font-variant-numeric:tabular-nums;text-align:right}
-.mode-strip{display:flex;gap:4px}
-.mode-btn{font-size:11px;padding:3px 10px;border:0.5px solid #3a3a5a;border-radius:20px;background:transparent;color:#888;cursor:pointer}
-.mode-btn.active{background:#7c6ff7;color:#fff;border-color:#7c6ff7}
-/* Edit-mode buttons (Add/Remove): brighter cyan-tinted border so they're visually distinct
-   from snap-density buttons when placed on the same row. Active state uses cyan fill. */
-.mode-btn.edit-btn{border:1px solid #22d3ee;color:#22d3ee;background:rgba(34,211,238,0.05)}
-.mode-btn.edit-btn.active{background:#22d3ee;color:#06080f;border-color:#22d3ee}
-/* Remove variant: same edit-btn shape, but red to signal a destructive action. */
-.mode-btn.edit-btn.edit-btn-remove{border-color:#ff6b9a;color:#ff6b9a;background:rgba(255,107,154,0.05)}
-.mode-btn.edit-btn.edit-btn-remove.active{background:#ff6b9a;color:#06080f;border-color:#ff6b9a}
-select{font-size:12px;padding:3px 6px;background:#1a1a2e;border:0.5px solid #3a3a5a;border-radius:5px;color:#e0e0ff;cursor:pointer;width:100%}
-.surf-controls{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;margin-bottom:8px}
-.export-row{display:flex;gap:6px;width:100%;margin-top:6px}
-.export-btn{flex:1;font-size:11px;padding:5px 6px;border:0.5px solid #7c6ff7;border-radius:20px;background:rgba(124,111,247,0.08);color:#a896ff;cursor:pointer;font-family:'Exo 2',system-ui,sans-serif;font-weight:500;white-space:nowrap}
-.metric-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px}
-.metric-tile{background:#0a0c14;border:0.5px solid #2a2a3a;border-radius:6px;padding:8px 10px}
-.metric-label{font-size:9px;color:#555;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:3px}
-.metric-value{font-size:14px;color:#22d3ee;font-variant-numeric:tabular-nums;font-weight:500}
-.metric-unit{font-size:10px;color:#666;margin-left:3px;font-weight:400}
-.topo-desc{font-size:11px;color:#7c8aaa;line-height:1.5;margin:6px 0 14px;padding:8px 10px;background:#0a0c14;border:0.5px solid #2a2a3a;border-radius:6px;border-left:2px solid #18f370}
-@import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@500;700&display=swap');
-.f13ld-header{display:flex;align-items:center;justify-content:space-between;background:#06080f;border-bottom:0.5px solid #1a2a1a;padding:0 14px;height:48px;flex-shrink:0;font-family:'Exo 2',system-ui,sans-serif;}
-.tab-bar{display:flex;background:#06080f;border-bottom:0.5px solid #1a2a1a;padding:0 14px;gap:4px;flex-shrink:0;align-items:flex-end;height:34px}
-.tab-pill{font-size:11px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;font-family:'Exo 2',system-ui,sans-serif;background:transparent;border:none;color:#555;padding:8px 14px 6px;cursor:pointer;border-radius:5px 5px 0 0;border-bottom:2px solid transparent;transition:color 0.15s,border-color 0.15s}
-.tab-pill:hover{color:#888}
-.tab-pill.active{color:#c8f542;border-bottom-color:#c8f542}
+html,body{height:100%;background:var(--bg);color:var(--ink);font:400 13px/1.45 var(--lq-font);overflow:hidden;-webkit-text-size-adjust:100%}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+select,input{color-scheme:dark}
+.ic{width:16px;height:16px;flex:0 0 auto;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;display:block}
+.ic.sm{width:14px;height:14px}
+/* 44px hit areas: the drawn element may be smaller; ::after carries the hit box */
+.hit{position:relative}
+.hit::after{content:'';position:absolute;left:50%;top:50%;width:max(100%,44px);height:max(100%,44px);transform:translate(-50%,-50%)}
+
+/* ── Shell ── */
+#app{height:100dvh;display:flex;flex-direction:column}
+#main{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) var(--pane-w)}
+#viewPane{position:relative;min-width:0;min-height:0}
+#cw{position:absolute;inset:0;background:var(--bg);overflow:hidden}
+canvas#glCanvas{display:block;width:100%;height:100%;touch-action:none}
+#axisCanvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:12}
+#ctrlPane{position:relative;min-height:0;min-width:0;display:grid;grid-template-columns:var(--rail-w) minmax(0,1fr);background:var(--panel);border-left:1px solid var(--hair)}
+#sectionsRail{grid-column:1;grid-row:1;min-height:0;position:relative}
+/* one section at a time; the column scrolls only if that section is taller than it.
+   Edges fade only where content is hidden (.ft / .fb set by the layout script). */
+#ctrlScroll{grid-column:2;grid-row:1;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;--ft:0px;--fb:0px;
+  -webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 var(--ft),#000 calc(100% - var(--fb)),transparent 100%);
+          mask-image:linear-gradient(to bottom,transparent 0,#000 var(--ft),#000 calc(100% - var(--fb)),transparent 100%)}
+#ctrlScroll.ft{--ft:20px}
+#ctrlScroll.fb{--fb:28px}
+#sheetHandle,#sectionsBar{display:none}
+
+/* ── Sections ── */
+.sec{display:none;padding:20px 16px 32px 4px;min-width:0}
+.sec.on{display:block}
+.sec-h{display:flex;align-items:baseline;gap:8px;font-size:15px;font-weight:600;color:var(--ink);letter-spacing:0.01em;margin-bottom:14px}
+.sec-h .sec-n{font:500 11px/1 var(--lq-mono);color:var(--ink-faint)}
+.sub-h{font-size:11px;font-weight:600;color:var(--ink-faint);text-transform:uppercase;letter-spacing:0.08em;margin:14px 0 6px;display:flex;align-items:center}
+
+/* ── Control rows (help system ROW_SEL = .sc-group) ── */
+.sc-group{display:flex;align-items:center;gap:8px;min-width:0}
+.sc-group>label,.lbl{font-size:13px;color:var(--ink-dim);white-space:nowrap;display:inline-flex;align-items:center}
+.sc-group .sv{font:500 13px/1 var(--lq-mono);color:var(--ink);font-variant-numeric:tabular-nums;text-align:right;min-width:44px}
+.mm-hint{font:400 11px/1 var(--lq-mono);color:var(--ink-faint);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.mm-hint.show{color:var(--ink-faint)}
+/* slider row: label · mm hint · value on top, full-width slider beneath */
+.sl{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;column-gap:8px;margin:2px 0 4px}
+.sl>label{grid-column:1;grid-row:1}
+.sl>.mm-hint{grid-column:2;grid-row:1;justify-self:end}
+.sl>.sv{grid-column:3;grid-row:1}
+.sl>input[type=range]{grid-column:1/-1;grid-row:2}
+.sl>.row-extra{grid-column:1/-1;grid-row:3}
+input[type=range]{width:100%;height:44px;margin:0;accent-color:var(--accent);background:transparent;cursor:pointer;touch-action:pan-y}
+/* text / number / select fields */
+/* PER-TOOL: beam fields carry the classes .fld / .fld-num in markup */
+.fld,.fld-num,select.fld{
+  height:44px;min-width:44px;padding:0 10px;background:var(--input);border:1px solid transparent;border-radius:10px;color:var(--ink);
+  font:400 13px var(--lq-font);outline:none;transition:border-color .15s var(--ease)}
+.fld-num{font-family:var(--lq-mono);text-align:center;font-variant-numeric:tabular-nums;-moz-appearance:textfield;appearance:textfield}
+input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.fld:focus,.fld-num:focus{border-color:var(--accent-line)}
+select{cursor:pointer}
+.unit{font-size:13px;color:var(--ink-faint)}
+
+/* ── Switch (kept for the widget stage) ── */
+.sw{display:inline-flex;align-items:center;gap:8px;min-height:44px;background:none;border:0;padding:0 2px;color:var(--ink-dim);font-size:13px;white-space:nowrap}
+.sw-t{position:relative;width:30px;height:18px;border-radius:9px;background:var(--input);box-shadow:inset 0 0 0 1px var(--hair-strong);transition:background .18s var(--ease);flex:0 0 auto}
+.sw-t::after{content:'';position:absolute;left:2px;top:2px;width:14px;height:14px;border-radius:50%;background:var(--ink-faint);transition:transform .18s var(--ease),background .18s var(--ease)}
+.sw.on .sw-t{background:var(--accent);box-shadow:none}
+.sw.on .sw-t::after{transform:translateX(12px);background:var(--accent-ink)}
+.sw:focus-visible{outline:2px solid var(--accent-line);outline-offset:2px;border-radius:8px}
+
+/* ── Viewer overlays ── */
+.vw-bl{position:absolute;left:10px;bottom:10px;z-index:14;display:flex;align-items:center;gap:6px}
+#clipOverlay{display:flex;align-items:center;gap:0;padding:0 0 0 10px;height:44px;background:oklch(0.13 0.012 265 / 0.82);border:1px solid var(--hair);border-radius:12px;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.clip-lbl{font-size:11px;color:var(--ink-faint);margin-right:2px}
+.clip-pill{width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;background:transparent;color:var(--ink-dim);border:1px solid transparent;border-radius:10px;font:600 13px/1 var(--lq-font);transition:color .15s var(--ease),background .15s var(--ease)}
+.clip-pill:hover{color:var(--ink)}
+.clip-pill.active{background:oklch(1 0 0 / 0.06)}
+#clipPillX.active{color:var(--axis-x)}#clipPillY.active{color:var(--axis-y)}#clipPillZ.active{color:var(--axis-z)}
+#cw .f13v{top:10px;left:10px}
+#cw .f13v>button{display:inline-flex;align-items:center;gap:6px;height:44px;padding:0 12px;font:500 13px var(--lq-font);color:var(--ink-dim);background:oklch(0.13 0.012 265 / 0.82);border:1px solid var(--hair);border-radius:12px;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+#cw .f13v>button:hover,#cw .f13v>button[aria-expanded=true]{color:var(--ink);border-color:var(--hair-strong)}
+#cw .f13v-p{background:oklch(0.17 0.014 265 / 0.95);border:1px solid var(--hair);border-radius:12px;padding:6px 12px 8px 10px;font:400 13px var(--lq-font)}
+#cw .f13v-p label{font-size:13px;color:var(--ink);min-height:36px}
+#cw .f13v-p input{width:16px;height:16px;accent-color:var(--accent)}
+#cw .f13v-p .f13v-r{font:400 13px var(--lq-font);color:var(--ink-dim);border:1px solid var(--hair-strong);border-radius:8px;padding:6px 12px}
+
+/* ── Header (shared F13LD markup, restyled to tokens) ── */
+.f13ld-header{display:flex;align-items:center;justify-content:space-between;background:var(--bg);border-bottom:1px solid var(--hair);padding:0 14px;padding-top:env(safe-area-inset-top);min-height:48px;flex:0 0 auto;font-family:'Exo 2',system-ui,sans-serif;position:relative;z-index:60}
 .fh-left{display:flex;align-items:center;gap:10px}
-.fh-brand{display:flex;align-items:center;gap:8px;text-decoration:none}
+.fh-brand{position:relative;display:flex;align-items:center;gap:8px;text-decoration:none}
+.fh-brand::after{content:'';position:absolute;left:0;right:0;top:50%;height:44px;transform:translateY(-50%)}
 .fh-wordmark{font-size:17px;font-weight:700;letter-spacing:0.1em;line-height:1}
-.fh-divider{width:0.5px;height:24px;background:#1a2a1a}
-.fh-tool-name{font-size:15px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;line-height:1}
-.fh-right{display:flex;align-items:center;gap:10px}
-.fh-version{font-size:10px;color:#2a3a2a;letter-spacing:0.1em;font-family:'Exo 2',system-ui,sans-serif}
+.fh-divider{width:1px;height:24px;background:var(--hair)}
+.fh-tool-name{font-size:15px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;line-height:1;color:var(--family)}
+.fh-right{display:flex;align-items:center;gap:8px}
+.fh-version{font-size:11px;color:var(--ink-faint);letter-spacing:0.08em;font-family:'Exo 2',system-ui,sans-serif}
 .fh-icon{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.fh-mesh-btn{font-size:11px;padding:4px 12px;border:0.5px solid #1D9E75;border-radius:20px;background:rgba(29,158,117,0.08);color:#1D9E75;cursor:pointer;font-family:inherit;font-weight:600;white-space:nowrap;transition:background 0.15s}
-.fh-mesh-btn:hover{background:rgba(29,158,117,0.18)}
-/* ── Header handoff buttons (same in every F13LD design tool) ──
-   Short labels so they fit on phones; each tooltip carries the full name.
-   Queue's ▾ (pick which queue) is joined to the Queue pill as one split control. */
+.fh-mesh-btn{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:6px;height:32px;padding:0 12px;border:1px solid var(--hair-strong);border-radius:999px;background:var(--card);color:var(--ink-dim);font:500 13px var(--lq-font);white-space:nowrap;transition:color .15s var(--ease),border-color .15s var(--ease),background .15s var(--ease)}
+.fh-mesh-btn:hover{color:var(--ink);border-color:var(--ink-faint)}
+.fh-mesh-btn::after{content:'';position:absolute;left:50%;top:50%;width:max(100%,44px);height:44px;transform:translate(-50%,-50%)}
+/* Queue button comes from the external queue client: its icon is a drawn SVG mask, so it survives text changes */
+.f13ldq-main::before,#f13ldq-fallback::before{content:'';width:16px;height:16px;flex:0 0 auto;background:currentColor;
+  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round'%3E%3Cpath d='M2.5 4h8M2.5 8h8M2.5 12h4.5M12.5 9.5v5M10 12h5'/%3E%3C/svg%3E") center/16px 16px no-repeat;
+          mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round'%3E%3Cpath d='M2.5 4h8M2.5 8h8M2.5 12h4.5M12.5 9.5v5M10 12h5'/%3E%3C/svg%3E") center/16px 16px no-repeat}
 .fh-right .f13ldq-split{gap:0}
-.fh-right .f13ldq-split .f13ldq-main{border-radius:20px 0 0 20px;border-right:none;padding-right:9px}
-.fh-right .f13ldq-split .f13ldq-caret{border-radius:0 20px 20px 0;padding-left:7px;padding-right:8px;border-left:0.5px solid rgba(29,158,117,0.4)}
-/* Phones: brand + help/version/icon on the top row; Queue, Mesh and Lab share
+.fh-right .f13ldq-split .f13ldq-main{border-radius:999px 0 0 999px;border-right:none;padding-right:9px}
+.fh-right .f13ldq-split .f13ldq-caret{border-radius:0 999px 999px 0;padding-left:8px;padding-right:9px;border-left:1px solid var(--hair-strong);font-size:0}
+.fh-right .f13ldq-split .f13ldq-caret::before{content:'';width:12px;height:12px;background:currentColor;
+  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 4.5l3 3 3-3'/%3E%3C/svg%3E") center/12px 12px no-repeat;
+          mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 4.5l3 3 3-3'/%3E%3C/svg%3E") center/12px 12px no-repeat}
+.hdr-msg{position:absolute;right:12px;top:calc(100% + 8px);max-width:min(340px,calc(100vw - 24px));padding:10px 12px;background:var(--card);border:1px solid var(--hair-strong);border-radius:12px;color:var(--ink);font:400 13px/1.45 var(--lq-font);box-shadow:0 8px 24px oklch(0 0 0 / 0.4);z-index:70}
+.hdr-msg[hidden]{display:none}
+.hdr-msg-act{position:relative;margin:0;padding:0;border:0;background:none;color:var(--accent);font:600 13px/1.45 var(--lq-font);cursor:pointer}
+.hdr-msg-act::after{content:'';position:absolute;left:50%;top:50%;width:max(100%,44px);height:44px;transform:translate(-50%,-50%)}
+.hdr-msg-note{margin-top:4px;color:var(--ink-dim);font-size:11px}
+/* help system (engine untouched): bigger hit areas and type ≥ 11px, tool-side */
+.f13ld-header .f13h-trigger{position:relative;width:32px;height:32px;font-size:15px;border:1px solid var(--hair-strong);color:var(--ink-dim)}
+.f13ld-header .f13h-trigger::after{content:'';position:absolute;inset:-7px}
+body .f13h-i{position:relative;width:18px;height:18px;font-size:11px;border-width:1px}
+body .f13h-i::after{content:'';position:absolute;inset:-14px}
+body .f13h-head h2 span,body .f13h-range,body .f13h-section-t,body .f13h-tut{font-size:11px}
+body .f13h-tag{font-size:11px;width:44px;letter-spacing:0.04em}
+body .f13h-line{font-size:13px}
+body .f13h-intro{font-size:13px}
+body .f13h-name{font-size:13px}
+body .f13h-close{width:44px;height:44px}
+
+/* Phones (header): brand + help/version/icon on the top row; Queue, Mesh and Lab share
    one row underneath (the ::after is a zero-height line break between them). */
 @media (max-width:560px){
-  .f13ld-header{flex-wrap:wrap;height:auto;padding:8px 12px 10px;row-gap:0;column-gap:8px}
+  .f13ld-header{flex-wrap:wrap;padding:8px 12px 10px;padding-top:calc(8px + env(safe-area-inset-top));row-gap:0;column-gap:8px}
   .f13ld-header::after{content:'';order:1;flex:0 0 100%;height:0}
   .fh-right{display:contents}
   .fh-left{order:0;margin-right:auto}
-  .f13ld-header .f13h-trigger,.fh-version,.fh-icon{order:1}
+  .f13ld-header .f13h-trigger,.fh-version,.fh-icon,#w-recipe{order:1}
   .fh-right .fh-mesh-btn,.fh-right .f13ldq-split{order:2;margin-top:8px}
-  .fh-mesh-btn{flex:1 1 0;min-width:0;text-align:center;padding:7px 6px}
+  .fh-mesh-btn{flex:1 1 0;min-width:0;height:36px;padding:0 6px}
   .fh-right .f13ldq-split{flex:1.4 1 0;min-width:0;display:flex}
   .fh-right .f13ldq-split .f13ldq-main{flex:1 1 0;margin-top:0}
-  .fh-right .f13ldq-split .f13ldq-caret{flex:0 0 26px;padding:7px 0;margin-top:0}
+  .fh-right .f13ldq-split .f13ldq-caret{flex:0 0 30px;padding:0;margin-top:0}
 }
-#axisCanvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:12}
-#clipOverlay{position:absolute;bottom:44px;left:10px;display:flex;gap:6px;z-index:13}
-.clip-pill{background:rgba(6,8,15,0.85);color:#555;border:0.5px solid #2a2a3a;border-radius:5px;font-size:11px;font-weight:600;letter-spacing:0.04em;padding:4px 9px;cursor:pointer;transition:color 0.15s,border-color 0.15s;font-family:inherit;line-height:1}
-#clipHandleHit{position:absolute;width:32px;height:32px;margin:-16px 0 0 -16px;z-index:14;cursor:grab;display:none;touch-action:none}
-/* Stiffness surface viz (TPMS-style) */
-.viz-row{display:grid;grid-template-columns:1fr 96px;gap:6px;margin-bottom:8px}
-/* 3-column layout: left tiles | center canvas | right tiles. Used in homogenization section. */
-.viz-row3{display:grid;grid-template-columns:96px minmax(160px, 1fr) 96px;gap:6px;margin-bottom:8px;align-items:stretch}
-.viz-card{background:#0a0c14;border:none;border-radius:8px;padding:8px;display:flex;flex-direction:column;align-items:stretch}
-.viz-title{font-size:9px;color:#555;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:5px}
-.stiff-canvas-wrap{position:relative;width:100%;flex:1;display:flex;align-items:center;justify-content:center;min-height:140px}
-.stiff-canvas{display:block;border-radius:6px;background:#0a0c14;width:auto;height:100%;max-width:100%;max-height:280px;aspect-ratio:1}
-/* Overlay shown when homogenization fails or cell is empty. Sits on top of the canvas. */
-.stiff-empty-overlay{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:14px;background:#0a0c14;border-radius:6px}
+
+/* ── Phone / narrow (< 900px): viewer on top, controls in a draggable bottom sheet ── */
+@media (max-width:899px){
+  #main{display:block;position:relative}
+  #viewPane{height:calc(100dvh - var(--hdr-h) - var(--peek))}
+  #ctrlPane{position:fixed;left:0;right:0;bottom:0;z-index:50;height:var(--sheet-h,var(--peek));max-height:calc(100dvh - var(--hdr-h));
+    display:flex;flex-direction:column;border-left:none;border-radius:18px 18px 0 0;
+    box-shadow:0 -1px 0 var(--hair-strong),0 -12px 32px oklch(0 0 0 / 0.35);transition:height .26s var(--ease)}
+  #ctrlPane.dragging{transition:none}
+  #sectionsRail{display:none}
+  #sheetHandle{display:flex;flex:0 0 22px;align-items:center;justify-content:center;position:relative;touch-action:none;cursor:grab;background:none;border:0;width:100%}
+  #sheetHandle::before{content:'';width:36px;height:4px;border-radius:2px;background:var(--hair-strong)}
+  #sheetHandle::after{content:'';position:absolute;left:0;right:0;top:-12px;bottom:-10px}
+  #ctrlScroll{flex:1 1 auto;padding:0 16px}
+  .sec{padding:6px 0 20px}
+  #sectionsBar{display:block;flex:0 0 auto;border-top:1px solid var(--hair);padding-bottom:env(safe-area-inset-bottom);background:var(--panel)}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{transition-duration:0s !important;animation-duration:0s !important}
+}
+/* fallback section tabs: rail on desktop, tab bar on phones (the liquid widgets replace them; also the no-WebGL path) */
+.sb-fallback{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr)}
+.sb-fallback button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:52px;background:none;border:0;color:var(--ink-faint);font-size:11px;font-weight:500}
+.sb-fallback button.on{color:var(--accent)}
+#sectionsRail .sb-fallback{display:flex;flex-direction:column;gap:2px;padding:12px 0 0 4px}
+#sectionsRail .sb-fallback button{width:100%;border-radius:10px}
+
+/* ============================================================================
+   beam rules
+   ========================================================================== */
+/* Library / Builder: one source, the section blocks follow it */
+html[data-mode=library] [data-mode=builder],html[data-mode=builder] [data-mode=library]{display:none!important}
+[id^="w-"]:empty{display:none}
+sub,sup{font-size:11px;line-height:0}
+.vw-br{position:absolute;right:10px;bottom:10px;z-index:14}
+#status{position:absolute;right:12px;bottom:12px;z-index:13;font-size:11px;color:var(--ink-faint);pointer-events:none;max-width:40%;text-align:right;text-shadow:0 1px 2px var(--bg)}
+#status.busy{color:var(--warn)}
+#qualityOverlay{position:absolute;top:10px;right:10px;z-index:14;display:flex;gap:0;height:44px;padding:0 2px;background:oklch(0.13 0.012 265 / 0.82);border:1px solid var(--hair);border-radius:12px;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+#qualityOverlay button{min-width:44px;height:44px;padding:0 6px;background:transparent;border:0;border-radius:10px;color:var(--ink-dim);font:500 13px var(--lq-font);transition:color .15s var(--ease),background .15s var(--ease)}
+#qualityOverlay button:hover{color:var(--ink)}
+#qualityOverlay button.active{color:var(--accent);background:oklch(1 0 0 / 0.06)}
+#clipHandleHit{position:absolute;width:44px;height:44px;margin:-22px 0 0 -22px;z-index:14;cursor:grab;display:none;touch-action:none}
+
+/* rows */
+.sec .sc-group{margin-bottom:14px}
+.sc-group.stack{flex-wrap:wrap;gap:4px 8px}
+.sc-group.stack>label{flex:0 0 100%}
+.sc-group.stack>select,.sc-group.stack>.fld,.sc-group.stack>.mode-strip{flex:1 1 100%;min-width:0}
+.sc-group.sl{margin-bottom:6px}
+.sc-group.mat{gap:10px}
+.sc-group.mat>label{flex:1 1 auto}
+.sc-group.mat .fld-num{width:112px;flex:none}
+.sc-group.mat .unit{flex:0 0 40px}
+.note{font-size:11px;line-height:1.5;color:var(--ink-faint);margin:0 0 14px}
+.note strong{color:var(--ink-dim);font-weight:500}
+.note.box,.status-line{background:var(--viz);border:1px solid var(--hair);border-radius:10px;padding:8px 10px}
+.status-line{font-size:13px;line-height:1.45;color:var(--ink-dim);margin:0 0 14px;min-height:44px;display:flex;align-items:center}
+.topo-desc{font-size:13px;color:var(--ink-dim);line-height:1.5;margin:0 0 14px;padding:10px 12px;background:var(--card);border-radius:10px;border-left:2px solid var(--accent-line)}
+.topo-desc:empty{display:none}
+
+/* choices: segmented fallback over native buttons */
+.mode-strip{display:flex;gap:4px;min-width:0}
+.mode-btn{flex:1 1 0;min-width:0;height:44px;padding:0 6px;display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--hair-strong);border-radius:12px;background:var(--card);color:var(--ink-dim);font:500 13px var(--lq-font);white-space:nowrap;transition:color .15s var(--ease),border-color .15s var(--ease),background .15s var(--ease)}
+.mode-btn:hover{color:var(--ink)}
+.mode-btn.active{background:var(--accent-soft);border-color:var(--accent-line);color:var(--accent)}
+.mode-btn.edit-btn-remove.active{background:oklch(0.68 0.19 25 / 0.14);border-color:oklch(0.68 0.19 25 / 0.45);color:var(--danger)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;min-width:0;padding:0 14px;background:var(--card);border:1px solid var(--hair-strong);border-radius:12px;color:var(--ink);font:500 13px var(--lq-font);white-space:nowrap;transition:color .15s var(--ease),border-color .15s var(--ease),background .15s var(--ease)}
+.btn:hover{border-color:var(--ink-faint)}
+.btn.primary{background:var(--accent-soft);border-color:var(--accent-line);color:var(--accent);width:100%}
+.btn.ok{color:var(--accent);border-color:var(--accent-line)}
+.btn-row{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:8px;margin:0 0 14px}
+:is(.mode-btn,.btn,.sb-fallback button,.clip-pill,#qualityOverlay button):focus-visible{outline:2px solid var(--accent-line);outline-offset:2px}
+
+/* stiffness readouts. Surface on top at full width; structure and moduli tiles side by side beneath */
+.viz-row3{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;margin-bottom:8px}
+.viz-card{grid-column:1/-1;grid-row:1;background:var(--viz);border-radius:12px;padding:10px;display:flex;flex-direction:column;align-items:stretch;min-width:0}
+.stiff-canvas-wrap{position:relative;width:100%;height:200px;flex:none;display:flex;align-items:center;justify-content:center}
+.stiff-canvas{display:block;border-radius:8px;background:var(--viz);width:auto;height:100%;max-width:100%;aspect-ratio:1}
+/* Overlay shown when homogenization fails or the cell is empty. Sits on top of the canvas. */
+.stiff-empty-overlay{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:10px;background:var(--viz);border-radius:8px;overflow:auto}
 .stiff-empty-overlay.show{display:flex}
-.stiff-empty-overlay .se-icon{font-size:22px;margin-bottom:8px;opacity:0.6}
-.stiff-empty-overlay .se-head{font-size:11px;color:#888;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px;font-weight:600}
-.stiff-empty-overlay .se-body{font-size:10px;color:#666;line-height:1.55;max-width:220px}
-.stiff-empty-overlay .se-body strong{color:#888;font-weight:500}
-.viz-tiles{display:flex;flex-direction:column;gap:4px}
-.metric-tile-mini{background:#0a0c14;border:0.5px solid #2a2a3a;border-radius:6px;padding:5px 8px;flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center}
-.metric-tile-mini .mv{font-size:13px;font-weight:500;font-variant-numeric:tabular-nums;line-height:1.1;color:#22d3ee}
-.metric-tile-mini .ml{font-size:9px;color:#555;letter-spacing:0.06em;text-transform:uppercase;margin-top:2px;line-height:1}
-.zener-row{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:11px;color:#777}
-.zener-val{font-size:14px;font-weight:500;color:#888;min-width:36px;font-variant-numeric:tabular-nums}
-.zener-label{font-size:11px;color:#555;flex:1;text-align:right}
-.zener-bar{position:relative;height:5px;background:#1a1a2a;border-radius:3px;margin:3px 0}
-.zener-bar-bg{position:absolute;left:0;top:0;bottom:0;width:100%;border-radius:3px;background:linear-gradient(90deg,#e879f9 0%,#555 40%,#555 60%,#22d3ee 100%);opacity:0.4}
-.zener-bar-tick{position:absolute;left:40%;top:-1px;width:1px;height:7px;background:#555;opacity:0.8}
-.zener-bar-marker{position:absolute;top:-2px;width:2px;height:9px;background:#e0e0ff;border-radius:1px;left:40%;transition:left 0.4s}
-.zener-axis{display:flex;justify-content:space-between;font-size:10px;color:#666;margin-top:1px}
+.stiff-empty-overlay .se-icon{margin-bottom:6px;color:var(--ink-faint)}
+.stiff-empty-overlay .se-icon .ic{width:22px;height:22px}
+.stiff-empty-overlay .se-head{font-size:11px;color:var(--ink-dim);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px;font-weight:600}
+.stiff-empty-overlay .se-body{font-size:11px;color:var(--ink-faint);line-height:1.5;max-width:280px}
+.stiff-empty-overlay .se-body strong{color:var(--ink-dim);font-weight:500}
+.viz-tiles{display:grid;gap:6px;align-content:start;min-width:0}
+.metric-tile-mini{background:var(--viz);border:1px solid var(--hair);border-radius:10px;padding:6px 10px;min-height:44px;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:2px}
+.metric-tile-mini .mv{font:500 15px/1.15 var(--lq-mono);font-variant-numeric:tabular-nums;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.metric-tile-mini .mv small{font-size:11px;color:var(--ink-faint);font-weight:400}
+.metric-tile-mini .ml{font-size:11px;color:var(--ink-faint);line-height:1.2}
+.ax-x{color:var(--axis-x)!important}.ax-y{color:var(--axis-y)!important}.ax-z{color:var(--axis-z)!important}.ax-g{color:var(--shear)!important}
+.zener-row{display:flex;align-items:center;gap:6px;margin-top:8px;font-size:13px;color:var(--ink-faint)}
+.zener-val{font:500 15px var(--lq-mono);color:var(--ink-dim);min-width:48px;font-variant-numeric:tabular-nums}
+.zener-label{font-size:13px;color:var(--ink-faint);flex:1;text-align:right}
+.zener-bar{position:relative;height:5px;background:var(--input);border-radius:3px;margin:6px 0 4px}
+.zener-bar-bg{position:absolute;left:0;top:0;bottom:0;width:100%;border-radius:3px;background:linear-gradient(90deg,var(--axis-y) 0%,var(--ink-faint) 40%,var(--ink-faint) 60%,var(--axis-x) 100%);opacity:0.5}
+.zener-bar-tick{position:absolute;left:40%;top:-1px;width:1px;height:7px;background:var(--ink-faint)}
+.zener-bar-marker{position:absolute;top:-2px;width:2px;height:9px;background:var(--ink);border-radius:1px;left:40%;transition:left 0.4s}
+.zener-axis{display:flex;justify-content:space-between;font-size:11px;color:var(--ink-faint)}
+@media (max-width:899px){.stiff-canvas-wrap{height:min(200px,34dvh)}}
 </style>
 </head>
 <body>
-<div id="container">
+<!-- drawn icon sprite (stroke = currentColor); used as <svg class="ic"><use href="#i-name"/></svg> -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+  <symbol id="i-cell" viewBox="0 0 24 24"><rect x="4.5" y="4.5" width="15" height="15" rx="2.5"/><path d="M12 4.5v15M4.5 12h15"/></symbol>
+  <symbol id="i-pen" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/></symbol>
+  <symbol id="i-volume" viewBox="0 0 24 24"><path d="M12 3.8 19.2 7.8v8.4L12 20.2 4.8 16.2V7.8z"/><path d="M4.8 7.8 12 11.8l7.2-4M12 11.8v8.4"/></symbol>
+  <symbol id="i-analyze" viewBox="0 0 24 24"><path d="M4.5 19.5h15"/><path d="M7.5 16v-4M12 16V7.5M16.5 16v-6"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12"/></symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 6 4.5 10.5 9 15"/><path d="M4.5 10.5H15a4.5 4.5 0 0 1 0 9h-3"/></symbol>
+  <symbol id="i-redo" viewBox="0 0 24 24"><path d="M15 6l4.5 4.5L15 15"/><path d="M19.5 10.5H9a4.5 4.5 0 0 0 0 9h3"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V5M7.5 9.5 12 5l4.5 4.5M5 19.5h14"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13.5 6.5 19 12l-5.5 5.5"/></symbol>
+  <symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 4.5 3.8 19h16.4z"/><path d="M12 10v4M12 16.6v.1"/></symbol>
+  <symbol id="i-mesh" viewBox="0 0 24 24"><path d="M12 3.8 19.2 7.8v8.4L12 20.2 4.8 16.2V7.8z"/><path d="M4.8 7.8 12 11.8l7.2-4M12 11.8v8.4"/></symbol>
+  <symbol id="i-lab" viewBox="0 0 24 24"><path d="M9.5 4h5M10.5 4v5.6L5.2 18.4A1.2 1.2 0 0 0 6.2 20h11.6a1.2 1.2 0 0 0 1-1.6L13.5 9.6V4"/><path d="M8 14h8"/></symbol>
+</defs></svg>
+<div id="app">
   <div class="f13ld-header">
   <div class="fh-left">
     <a class="fh-brand" href="https://f13ld.app" target="_blank">
@@ -139,11 +324,12 @@ select{font-size:12px;padding:3px 6px;background:#1a1a2e;border:0.5px solid #3a3
       <div class="fh-wordmark"><span style="color:#1D9E75">F</span><span style="color:#c8f542">1</span><span style="color:#c8f542">3</span><span style="color:#1D9E75">LD</span></div>
     </a>
     <div class="fh-divider"></div>
-    <div class="fh-tool-name" style="color:#4A5A0F">BEAM</div>
+    <div class="fh-tool-name">BEAM</div>
   </div>
   <div class="fh-right">
-    <button class="fh-mesh-btn" onclick="openInMesh()" title="Open in F13LD.mesh — build a watertight, printable 3MF" aria-label="Open in F13LD.mesh">⬡ Mesh</button>
-    <button class="fh-mesh-btn" onclick="openInLab()" title="Open in F13LD.lab — homogenize in the validated FFT solver" aria-label="Open in F13LD.lab">▦ Lab</button>
+    <div id="w-recipe"></div>
+    <button class="fh-mesh-btn" id="meshBtn" data-native="send" onclick="openInMesh()" title="Open in F13LD.mesh — build a watertight, printable 3MF" aria-label="Open in F13LD.mesh"><svg class="ic sm"><use href="#i-mesh"/></svg>Mesh</button>
+    <button class="fh-mesh-btn" id="labBtn" data-native="send" onclick="openInLab()" title="Open in F13LD.lab — homogenize in the validated FFT solver" aria-label="Open in F13LD.lab"><svg class="ic sm"><use href="#i-lab"/></svg>Lab</button>
     <span class="fh-version">v0.4.0</span>
     <div class="fh-icon" style="background:#ECF1DA">
       <svg width="18" height="18" viewBox="0 0 40 40" fill="none">
@@ -164,24 +350,26 @@ select{font-size:12px;padding:3px 6px;background:#1a1a2e;border:0.5px solid #3a3
       </svg>
     </div>
   </div>
+  <div class="hdr-msg" id="hdrMsg" role="status" aria-live="polite" hidden></div>
 </div>
-  <div class="tab-bar">
-    <button class="tab-pill active" id="tabLibrary" onclick="switchTab('library')">Library</button>
-    <button class="tab-pill" id="tabBuilder" onclick="switchTab('builder')">Builder</button>
-  </div>
+
+  <div id="main">
+  <!-- Viewer pane: fills the left side on desktop, the top on phones -->
+  <section id="viewPane" aria-label="3D view">
   <div id="cw">
     <canvas id="glCanvas"></canvas>
     <canvas id="axisCanvas"></canvas>
-    <div id="clipOverlay">
-      <button class="clip-pill" id="clipPillX" onclick="onClipPill(1)">X</button>
-      <button class="clip-pill" id="clipPillY" onclick="onClipPill(2)">Y</button>
-      <button class="clip-pill" id="clipPillZ" onclick="onClipPill(3)">Z</button>
+    <div class="vw-bl">
+      <div id="w-clip"></div>
+      <div id="clipOverlay" data-native="clip"><span class="clip-lbl">clip</span>
+        <button class="clip-pill" id="clipPillX" onclick="onClipPill(1)" aria-label="Clip along X">X</button>
+        <button class="clip-pill" id="clipPillY" onclick="onClipPill(2)" aria-label="Clip along Y">Y</button>
+        <button class="clip-pill" id="clipPillZ" onclick="onClipPill(3)" aria-label="Clip along Z">Z</button>
+      </div>
     </div>
     <div id="clipHandleHit"></div>
     <div id="status">Initializing…</div>
-    <div id="indicators">
-      <div class="ind-pill"><div class="ind-dot" id="dotShader" style="background:#22d3ee"></div><span class="ind-label">shader</span><span id="labelShader" style="color:#22d3ee;font-size:10px">ready</span></div>
-    </div>
+    <!-- render quality: replaced by automatic quality in stage 4 -->
     <div id="qualityOverlay">
       <button id="btnQLow"  onclick="onQualityChange('low')">Low</button>
       <button id="btnQMed"  class="active" onclick="onQualityChange('medium')">Med</button>
@@ -189,166 +377,117 @@ select{font-size:12px;padding:3px 6px;background:#1a1a2e;border:0.5px solid #3a3
       <button id="btnQUltra" onclick="onQualityChange('ultra')">Ultra</button>
     </div>
   </div>
-  <div id="panel">
+  </section>
 
-    <div id="libraryPanel">
-    <div class="sec-lbl">topology</div>
-    <div style="margin-bottom:8px">
-      <select id="topology" onchange="onTopologyChange()">
-        <optgroup label="Foundational">
-          <option value="simple_cubic">Simple Cubic</option>
-          <option value="bcc">BCC</option>
-          <option value="fcc">FCC</option>
-          <option value="diamond">Diamond</option>
-          <option value="tetrahedron">Tetrahedron</option>
-        </optgroup>
-        <optgroup label="Truss family">
-          <option value="octahedron">Octahedron</option>
-          <option value="octet" selected>Octet Truss</option>
-          <option value="octet_z">Octet-Z</option>
-          <option value="cuboctahedron">Cuboctahedron</option>
-        </optgroup>
-        <optgroup label="Reinforced hybrids">
-          <option value="bcc_z">BCC-Z</option>
-          <option value="fcc_z">FCC-Z</option>
-          <option value="bcc_edges">BCC + Edges</option>
-          <option value="fcc_edges">FCC + Edges</option>
-          <option value="oct_edges">Octahedron + Edges</option>
-          <option value="f2bcc">F2BCC (FCC + BCC)</option>
-          <option value="f2bcc_z">F2BCC-Z</option>
-        </optgroup>
-        <optgroup label="Polyhedral cells">
-          <option value="kelvin">Kelvin (Truncated Octahedron)</option>
-          <option value="rhombic_dodec">Rhombic Dodecahedron</option>
-        </optgroup>
-        <optgroup label="Novel">
-          <option value="reentrant">3D Re-Entrant (Auxetic)</option>
-          <option value="tesseract">Tesseract</option>
-          <option value="truncated_cube">Truncated Cube</option>
-          <option value="cartesian_cross">Cartesian Cross</option>
-        </optgroup>
-      </select>
+  <!-- Control pane: desktop column / phone bottom sheet -->
+  <aside id="ctrlPane" aria-label="Controls">
+  <button id="sheetHandle" type="button" aria-label="Drag to resize the controls"></button>
+  <nav id="sectionsRail" aria-label="Sections">
+    <div class="sb-fallback">
+      <button type="button" data-section="cell" class="on"><svg class="ic"><use href="#i-cell"/></svg>Cell</button>
+      <button type="button" data-section="draw"><svg class="ic"><use href="#i-pen"/></svg>Draw</button>
+      <button type="button" data-section="geometry"><svg class="ic"><use href="#i-volume"/></svg>Geometry</button>
+      <button type="button" data-section="analyze"><svg class="ic"><use href="#i-analyze"/></svg>Analyze</button>
     </div>
-    <div id="topoDesc" class="topo-desc"></div>
-    <button id="editCellBtn" onclick="onEditCell()" style="font-size:13px;padding:9px 14px;border:1px solid #c8f542;border-radius:8px;background:rgba(200,245,66,0.12);color:#c8f542;cursor:pointer;font-family:'Exo 2',system-ui,sans-serif;font-weight:700;letter-spacing:0.04em;width:100%;margin-bottom:10px;margin-top:4px;transition:background 0.15s,box-shadow 0.15s" onmouseover="this.style.background='rgba(200,245,66,0.20)';this.style.boxShadow='0 0 12px rgba(200,245,66,0.25)'" onmouseout="this.style.background='rgba(200,245,66,0.12)';this.style.boxShadow='none'">✎  Edit this cell in Builder  →</button>
+  </nav>
+  <div id="ctrlScroll">
 
-    <hr class="divider">
-    <div class="sec-lbl">geometry</div>
-    <div class="sc-group"><label>radius</label><input type="range" id="radius" min="0.02" max="0.30" step="0.005" value="0.10" oninput="onParamChange(this,'radiusValue')"><span class="sv" id="radiusValue">0.100</span></div>
-    <div class="sc-group"><label>cell size</label><input type="range" id="cell" min="0.5" max="3.0" step="0.05" value="1.5" oninput="onParamChange(this,'cellValue')"><span class="sv" id="cellValue">1.50</span></div>
-    <div class="sc-group" style="margin-bottom:8px">
-      <label>tiling</label>
-      <div class="mode-strip">
-        <button class="mode-btn active" id="btnTile1" onclick="onTileChange(1)">1&sup3;</button>
-        <button class="mode-btn" id="btnTile2" onclick="onTileChange(2)">2&sup3;</button>
-        <button class="mode-btn" id="btnTile3" onclick="onTileChange(3)">3&sup3;</button>
+    <!-- 01 Cell: source (Library / Builder), then the cell of that source -->
+    <section class="sec" id="sec-cell" data-section="cell">
+      <h2 class="sec-h"><span class="sec-n">01</span>Cell</h2>
+      <div class="sc-group stack" id="grp-source">
+        <label>source</label>
+        <div id="w-source"></div>
+        <div class="mode-strip" data-native="source" role="group" aria-label="Cell source">
+          <button class="mode-btn active" id="tabLibrary" onclick="switchTab('library')">Library</button>
+          <button class="mode-btn" id="tabBuilder" onclick="switchTab('builder')">Builder</button>
+        </div>
       </div>
-    </div>
-    <div style="font-size:10px;color:#555;margin-top:-4px;margin-bottom:14px;line-height:1.5">radius is in cell-local units (fraction of half-cell). beam diameter = 2 &middot; radius &middot; cell.</div>
 
-    <hr class="divider">
-    <div class="sec-lbl">homogenization</div>
-    <div class="sc-group" style="margin-bottom:6px"><label>parent E<sub>s</sub></label><input type="number" id="matE" value="113000" step="1000" min="100" max="2000000" oninput="onMatChange()" style="width:78px;font-size:11px;padding:3px 6px;background:#1a1a2e;border:0.5px solid #3a3a5a;border-radius:4px;color:#e0e0ff;font-family:inherit"><span class="sv" style="font-size:10px">MPa</span></div>
-    <div class="sc-group" style="margin-bottom:8px"><label>parent ν<sub>s</sub></label><input type="number" id="matNu" value="0.34" step="0.01" min="-0.99" max="0.49" oninput="onMatChange()" style="width:78px;font-size:11px;padding:3px 6px;background:#1a1a2e;border:0.5px solid #3a3a5a;border-radius:4px;color:#e0e0ff;font-family:inherit"><span class="sv" style="font-size:10px">—</span></div>
-    <div style="font-size:10px;color:#555;margin-top:-2px;margin-bottom:8px;line-height:1.5">Defaults: Ti-6Al-4V. Engineering constants compute live via DSM-PBC with sharing-weighted beam contributions.</div>
-
-    <div class="sec-lbl" style="margin-top:12px">directional stiffness</div>
-    <div class="viz-row3">
-      <!-- LEFT: structural metrics -->
-      <div class="viz-tiles">
-        <div class="metric-tile-mini"><span class="mv" id="mBeams">—</span><span class="ml">Beams</span></div>
-        <div class="metric-tile-mini"><span class="mv"><span id="mDensity">—</span><span style="font-size:10px;color:#666;font-weight:400"> %</span></span><span class="ml">Rel ρ̄</span></div>
-        <div class="metric-tile-mini"><span class="mv" id="mLength">—</span><span class="ml">Σ Length</span></div>
-        <div class="metric-tile-mini"><span class="mv" id="mNodes">—</span><span class="ml">Nodes</span></div>
-        <div class="metric-tile-mini"><span class="mv" id="mPbcNodes">—</span><span class="ml">PBC Nodes</span></div>
-        <div class="metric-tile-mini"><span class="mv" id="mMaxwell">—</span><span class="ml">Maxwell M</span></div>
+      <div data-mode="library">
+        <div class="sc-group stack" id="grp-topology">
+          <label for="topology">topology</label>
+          <div id="w-topology"></div>
+          <select id="topology" class="fld" data-native="select" onchange="onTopologyChange()">
+            <optgroup label="Foundational">
+              <option value="simple_cubic">Simple Cubic</option>
+              <option value="bcc">BCC</option>
+              <option value="fcc">FCC</option>
+              <option value="diamond">Diamond</option>
+              <option value="tetrahedron">Tetrahedron</option>
+            </optgroup>
+            <optgroup label="Truss family">
+              <option value="octahedron">Octahedron</option>
+              <option value="octet" selected>Octet Truss</option>
+              <option value="octet_z">Octet-Z</option>
+              <option value="cuboctahedron">Cuboctahedron</option>
+            </optgroup>
+            <optgroup label="Reinforced hybrids">
+              <option value="bcc_z">BCC-Z</option>
+              <option value="fcc_z">FCC-Z</option>
+              <option value="bcc_edges">BCC + Edges</option>
+              <option value="fcc_edges">FCC + Edges</option>
+              <option value="oct_edges">Octahedron + Edges</option>
+              <option value="f2bcc">F2BCC (FCC + BCC)</option>
+              <option value="f2bcc_z">F2BCC-Z</option>
+            </optgroup>
+            <optgroup label="Polyhedral cells">
+              <option value="kelvin">Kelvin (Truncated Octahedron)</option>
+              <option value="rhombic_dodec">Rhombic Dodecahedron</option>
+            </optgroup>
+            <optgroup label="Novel">
+              <option value="reentrant">3D Re-Entrant (Auxetic)</option>
+              <option value="tesseract">Tesseract</option>
+              <option value="truncated_cube">Truncated Cube</option>
+              <option value="cartesian_cross">Cartesian Cross</option>
+            </optgroup>
+          </select>
+        </div>
+        <div id="topoDesc" class="topo-desc"></div>
+        <button id="editCellBtn" class="btn primary" onclick="onEditCell()"><svg class="ic"><use href="#i-pen"/></svg>Edit in Builder<svg class="ic"><use href="#i-arrow"/></svg></button>
       </div>
-      <!-- CENTER: stiffness surface canvas + zener bar -->
-      <div class="viz-card">
-        <div class="stiff-canvas-wrap">
-          <canvas id="stiffSurfCv" class="stiff-canvas"></canvas>
-          <div id="mStiffEmpty" class="stiff-empty-overlay">
-            <div class="se-icon">⚠</div>
-            <div class="se-head" id="mStiffEmptyHead">not stiff</div>
-            <div class="se-body" id="mStiffEmptyBody">—</div>
+
+      <div data-mode="builder">
+        <div class="sc-group stack" id="grp-cellname">
+          <label for="bldCellName">cell name</label>
+          <input type="text" id="bldCellName" class="fld" value="Custom Cell" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="btn-row">
+          <button class="btn" id="bldPushBtn" onclick="bldPushToLibrary()" title="Save this cell to the library and switch to Library"><svg class="ic"><use href="#i-upload"/></svg>Push to Library</button>
+          <button class="btn" id="bldNewBtn" onclick="bldNewCell()" title="Clear all beams and start a new cell"><svg class="ic"><use href="#i-plus"/></svg>New</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 02 Draw -->
+    <section class="sec" id="sec-draw" data-section="draw">
+      <h2 class="sec-h"><span class="sec-n">02</span>Draw</h2>
+      <div data-mode="library">
+        <p class="note">Library cells are fixed. Edit one in Builder to change its beams.</p>
+        <button id="editCellBtn2" class="btn primary" onclick="onEditCell()"><svg class="ic"><use href="#i-pen"/></svg>Edit in Builder<svg class="ic"><use href="#i-arrow"/></svg></button>
+      </div>
+      <div data-mode="builder">
+        <div class="sc-group stack" id="grp-edit">
+          <label>edit</label>
+          <div id="w-edit"></div>
+          <div class="mode-strip edit-strip" data-native="edit" role="group" aria-label="Edit mode">
+            <button class="mode-btn edit-btn active" id="btnModeAdd" onclick="bldSetMode('add')"><svg class="ic"><use href="#i-plus"/></svg>Add</button>
+            <button class="mode-btn edit-btn edit-btn-remove" id="btnModeRemove" onclick="bldSetMode('remove')"><svg class="ic"><use href="#i-minus"/></svg>Remove</button>
           </div>
         </div>
-        <div class="zener-row">
-          <span style="font-size:11px;color:#666">A =</span>
-          <span class="zener-val" id="mZenerVal">—</span>
-          <span class="zener-label" id="mZenerLabel">—</span>
-        </div>
-        <div class="zener-bar">
-          <div class="zener-bar-bg"></div>
-          <div class="zener-bar-tick"></div>
-          <div class="zener-bar-marker" id="mZenerMarker"></div>
-        </div>
-        <div class="zener-axis"><span>axial</span><span>A=1</span><span>diagonal</span></div>
-      </div>
-      <!-- RIGHT: engineering moduli -->
-      <div class="viz-tiles">
-        <div class="metric-tile-mini"><span class="mv" id="mEx" style="color:#22d3ee">—</span><span class="ml">E<sub>x</sub></span></div>
-        <div class="metric-tile-mini"><span class="mv" id="mEy" style="color:#e879f9">—</span><span class="ml">E<sub>y</sub></span></div>
-        <div class="metric-tile-mini"><span class="mv" id="mEz" style="color:#facc15">—</span><span class="ml">E<sub>z</sub></span></div>
-        <div class="metric-tile-mini"><span class="mv" id="mGxy" style="color:#a78bfa">—</span><span class="ml">G<sub>xy</sub></span></div>
-        <div class="metric-tile-mini"><span class="mv" id="mGyz" style="color:#a78bfa">—</span><span class="ml">G<sub>yz</sub></span></div>
-        <div class="metric-tile-mini"><span class="mv" id="mGxz" style="color:#a78bfa">—</span><span class="ml">G<sub>xz</sub></span></div>
-        <div class="metric-tile-mini"><span class="mv" id="mAniso">—</span><span class="ml">aniso</span></div>
-        <div class="metric-tile-mini"><span class="mv" id="mNuxy">—</span><span class="ml">ν<sub>xy</sub></span></div>
-      </div>
-    </div>
-    <!-- Hidden compatibility tile for ν_xz that other code references -->
-    <span id="mNuxz" style="display:none">—</span>
-    <div id="mHomogStatus" style="font-size:10px;color:#555;line-height:1.5;padding:6px 10px;background:#0a0c14;border:0.5px solid #2a2a3a;border-radius:6px;margin-top:6px">Sharing-weighted DSM-PBC, frame elements (axial + bending + torsion). Aniso = max(E)/min(E); 1.00 = isotropic. <strong style="color:#888">Validation:</strong> within 65–100% of literature (e.g., Octet ~67% of DFA ρ̄/9). Use as engineering guidance; cross-check against FEA for design-critical work.</div>
-
-    <div class="export-row">
-      <button id="exportBtn" class="export-btn" onclick="onExportJSON()">JSON</button>
-      <button id="exportLtcxBtn" class="export-btn" onclick="onExportLTCX()">LTCX</button>
-      <button id="exportCsvBtn" class="export-btn" onclick="onExportCSV()">CSV</button>
-    </div>
-    </div><!-- /libraryPanel -->
-
-    <div id="builderPanel" style="display:none">
-      <div class="sec-lbl">cell name</div>
-      <div style="display:flex;gap:6px;margin-bottom:14px">
-        <input type="text" id="bldCellName" value="Custom Cell" style="flex:1;font-size:12px;padding:5px 8px;background:#1a1a2e;border:0.5px solid #3a3a5a;border-radius:5px;color:#e0e0ff;font-family:inherit">
-        <button onclick="bldPushToLibrary()" title="Save this cell to the library and switch to Library tab" style="font-size:11px;padding:4px 14px;border:0.5px solid #c8f542;border-radius:5px;background:rgba(200,245,66,0.10);color:#c8f542;cursor:pointer;font-family:'Exo 2',system-ui,sans-serif;font-weight:600;white-space:nowrap">→ Push to Library</button>
-        <button onclick="bldNewCell()" title="Clear all beams and start a new cell" style="font-size:11px;padding:4px 12px;border:0.5px solid #c8f542;border-radius:5px;background:rgba(200,245,66,0.10);color:#c8f542;cursor:pointer;font-family:'Exo 2',system-ui,sans-serif;font-weight:600;white-space:nowrap">+ New</button>
-      </div>
-
-      <hr class="divider">
-      <!-- Row 1: Snap density | Edit mode | Radius (radius gets 2× width since the slider needs room) -->
-      <div style="display:flex;gap:14px;align-items:flex-end;margin-bottom:14px">
-        <div style="flex:1.5;min-width:0">
-          <div class="sec-lbl">snap density</div>
-          <div class="mode-strip">
+        <div class="sc-group stack" id="grp-snap">
+          <label>snap density</label>
+          <div id="w-snap"></div>
+          <div class="mode-strip" data-native="snap" role="group" aria-label="Snap density">
             <button class="mode-btn active" id="btnSnapCoarse" onclick="bldSetSnap('coarse')">Coarse 15</button>
             <button class="mode-btn" id="btnSnapMedium" onclick="bldSetSnap('medium')">Med 27</button>
             <button class="mode-btn" id="btnSnapFine" onclick="bldSetSnap('fine')">Fine 63</button>
           </div>
         </div>
-        <div style="flex:1;min-width:0">
-          <div class="sec-lbl">edit</div>
-          <div class="mode-strip edit-strip">
-            <button class="mode-btn edit-btn active" id="btnModeAdd" onclick="bldSetMode('add')">⊕ Add</button>
-            <button class="mode-btn edit-btn edit-btn-remove" id="btnModeRemove" onclick="bldSetMode('remove')">⊖ Remove</button>
-          </div>
-        </div>
-        <div style="flex:2;min-width:0">
-          <div class="sec-lbl">radius</div>
-          <div class="sc-group" style="margin-bottom:0;display:flex;align-items:center;gap:8px">
-            <input type="range" id="bldRadius" min="0.02" max="0.30" step="0.005" value="0.10" oninput="bldSetRadius(parseFloat(this.value))" style="flex:1;min-width:0">
-            <span class="sv" id="bldRadiusValue" style="min-width:42px;text-align:right">0.100</span>
-          </div>
-        </div>
-      </div>
-
-      <hr class="divider">
-      <!-- Row 2: Symmetry | History | Tiling (tiling is compact, only 3 buttons) -->
-      <div style="display:flex;gap:14px;align-items:flex-end;margin-bottom:6px">
-        <div style="flex:2;min-width:0">
-          <div class="sec-lbl">symmetry</div>
-          <select id="bldSymmetry" onchange="bldSetSymmetry(this.value)">
+        <div class="sc-group stack" id="grp-symmetry">
+          <label for="bldSymmetry">symmetry</label>
+          <div id="w-sym"></div>
+          <select id="bldSymmetry" class="fld" data-native="select" onchange="bldSetSymmetry(this.value)">
             <option value="none">None (1)</option>
             <option value="mirror_x">Mirror X (2)</option>
             <option value="mirror_y">Mirror Y (2)</option>
@@ -358,86 +497,173 @@ select{font-size:12px;padding:3px 6px;background:#1a1a2e;border:0.5px solid #3a3
             <option value="octahedral">Full octahedral (48)</option>
           </select>
         </div>
-        <div style="flex:2;min-width:0">
-          <div class="sec-lbl">history</div>
-          <div style="display:flex;gap:6px">
-            <button class="mode-btn" onclick="bldUndo()" style="flex:1">Undo</button>
-            <button class="mode-btn" onclick="bldRedo()" style="flex:1">Redo</button>
-            <button class="mode-btn" onclick="bldClear()" style="flex:1">Clear</button>
+        <div class="sc-group stack" id="grp-history">
+          <label>history</label>
+          <div class="btn-row" style="flex:1 1 100%;margin:0">
+            <button class="btn" id="bldUndoBtn" onclick="bldUndo()"><svg class="ic"><use href="#i-undo"/></svg>Undo</button>
+            <button class="btn" id="bldRedoBtn" onclick="bldRedo()"><svg class="ic"><use href="#i-redo"/></svg>Redo</button>
+            <button class="btn" id="bldClearBtn" onclick="bldClear()"><svg class="ic"><use href="#i-trash"/></svg>Clear</button>
           </div>
         </div>
-        <div style="flex:1;min-width:0">
-          <div class="sec-lbl">tiling</div>
-          <div class="mode-strip">
+        <div id="bldStatusLine" class="status-line" role="status">Click a snap point to begin a beam.</div>
+      </div>
+    </section>
+
+    <!-- 03 Geometry -->
+    <section class="sec" id="sec-geometry" data-section="geometry">
+      <h2 class="sec-h"><span class="sec-n">03</span>Geometry</h2>
+      <div data-mode="library">
+        <div class="sc-group sl" id="grp-radius" data-w-slider="radius">
+          <label for="radius">radius</label>
+          <span class="sv" id="radiusValue">0.100</span>
+          <input type="range" id="radius" min="0.02" max="0.30" step="0.005" value="0.10" oninput="onParamChange(this,'radiusValue')">
+        </div>
+        <div class="sc-group stack" id="grp-tile">
+          <label>tiling</label>
+          <div id="w-tile"></div>
+          <div class="mode-strip" data-native="tile" role="group" aria-label="Tiling">
+            <button class="mode-btn active" id="btnTile1" onclick="onTileChange(1)">1&sup3;</button>
+            <button class="mode-btn" id="btnTile2" onclick="onTileChange(2)">2&sup3;</button>
+            <button class="mode-btn" id="btnTile3" onclick="onTileChange(3)">3&sup3;</button>
+          </div>
+        </div>
+        <p class="note">Radius is in cell-local units (fraction of half-cell). Beam diameter = 2 &middot; radius &middot; cell.</p>
+      </div>
+      <div data-mode="builder">
+        <div class="sc-group sl" id="grp-bldradius" data-w-slider="bldRadius">
+          <label for="bldRadius">radius</label>
+          <span class="sv" id="bldRadiusValue">0.100</span>
+          <input type="range" id="bldRadius" min="0.02" max="0.30" step="0.005" value="0.10" oninput="bldSetRadius(parseFloat(this.value))">
+        </div>
+        <div class="sc-group stack" id="grp-bldtile">
+          <label>tiling</label>
+          <div id="w-bldtile"></div>
+          <div class="mode-strip" data-native="bldtile" role="group" aria-label="Tiling">
             <button class="mode-btn active" id="bldTile1" onclick="bldSetTile(1)">1&sup3;</button>
             <button class="mode-btn" id="bldTile2" onclick="bldSetTile(2)">2&sup3;</button>
             <button class="mode-btn" id="bldTile3" onclick="bldSetTile(3)">3&sup3;</button>
           </div>
         </div>
       </div>
-      <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:#888;margin-bottom:14px;cursor:pointer">
-        <input type="checkbox" id="bldGhost" checked onchange="bldRedraw()" style="accent-color:#22d3ee">
-        <span>Show ghost preview on hover</span>
-      </label>
+    </section>
 
-      <div id="bldStatusLine" style="font-size:11px;color:#666;line-height:1.5;padding:6px 10px;background:#0a0c14;border:0.5px solid #2a2a3a;border-radius:6px;margin-bottom:14px;min-height:18px">Click a snap point to begin a beam.</div>
+    <!-- 04 Analyze: material, stiffness readouts, then export -->
+    <section class="sec" id="sec-analyze" data-section="analyze">
+      <h2 class="sec-h"><span class="sec-n">04</span>Analyze</h2>
+      <div class="sc-group mat" id="grp-matE"><label for="matE">parent E<sub>s</sub></label><input type="number" id="matE" class="fld-num" value="113000" step="1000" min="100" max="2000000" oninput="onMatChange()"><span class="unit">MPa</span></div>
+      <div class="sc-group mat" id="grp-matNu"><label for="matNu">parent &nu;<sub>s</sub></label><input type="number" id="matNu" class="fld-num" value="0.34" step="0.01" min="-0.99" max="0.49" oninput="onMatChange()"><span class="unit"></span></div>
+      <p class="note">Defaults: Ti-6Al-4V. Engineering constants compute live via DSM-PBC with sharing-weighted beam contributions. One material for Library and Builder.</p>
 
-      <hr class="divider">
-      <div class="sec-lbl">directional stiffness</div>
-      <div class="viz-row3">
-        <!-- LEFT: structural metrics -->
-        <div class="viz-tiles">
-          <div class="metric-tile-mini"><span class="mv" id="bldMBeams">0</span><span class="ml">Beams</span></div>
-          <div class="metric-tile-mini"><span class="mv"><span id="bldMDensity">0.0</span><span style="font-size:10px;color:#666;font-weight:400"> %</span></span><span class="ml">Rel ρ̄</span></div>
-          <div class="metric-tile-mini"><span class="mv" id="bldMLength">0.0</span><span class="ml">Σ Length</span></div>
-          <div class="metric-tile-mini"><span class="mv" id="bldMNodes">—</span><span class="ml">Nodes</span></div>
-          <div class="metric-tile-mini"><span class="mv" id="bldMPbcNodes">—</span><span class="ml">PBC Nodes</span></div>
-          <div class="metric-tile-mini"><span class="mv" id="bldMMaxwell">—</span><span class="ml">Maxwell M</span></div>
-        </div>
-        <!-- CENTER: stiffness surface -->
-        <div class="viz-card">
-          <div class="stiff-canvas-wrap">
-            <canvas id="bldStiffSurfCv" class="stiff-canvas"></canvas>
-            <div id="bldStiffEmpty" class="stiff-empty-overlay">
-              <div class="se-icon">⚠</div>
-              <div class="se-head" id="bldStiffEmptyHead">not stiff</div>
-              <div class="se-body" id="bldStiffEmptyBody">—</div>
+      <h3 class="sub-h sec-lbl">directional stiffness</h3>
+
+      <div data-mode="library">
+        <div class="viz-row3">
+          <div class="viz-tiles">
+            <div class="metric-tile-mini"><span class="mv" id="mBeams">—</span><span class="ml">Beams</span></div>
+            <div class="metric-tile-mini"><span class="mv"><span id="mDensity">—</span><small> %</small></span><span class="ml">Rel ρ̄</span></div>
+            <div class="metric-tile-mini"><span class="mv" id="mLength">—</span><span class="ml">Σ Length</span></div>
+            <div class="metric-tile-mini"><span class="mv" id="mNodes">—</span><span class="ml">Nodes</span></div>
+            <div class="metric-tile-mini"><span class="mv" id="mPbcNodes">—</span><span class="ml">PBC Nodes</span></div>
+            <div class="metric-tile-mini"><span class="mv" id="mMaxwell">—</span><span class="ml">Maxwell M</span></div>
+          </div>
+          <div class="viz-card">
+            <div class="stiff-canvas-wrap">
+              <canvas id="stiffSurfCv" class="stiff-canvas"></canvas>
+              <div id="mStiffEmpty" class="stiff-empty-overlay">
+                <div class="se-icon"><svg class="ic"><use href="#i-warn"/></svg></div>
+                <div class="se-head" id="mStiffEmptyHead">not stiff</div>
+                <div class="se-body" id="mStiffEmptyBody">—</div>
+              </div>
             </div>
+            <div class="zener-row"><span>A =</span><span class="zener-val" id="mZenerVal">—</span><span class="zener-label" id="mZenerLabel">—</span></div>
+            <div class="zener-bar"><div class="zener-bar-bg"></div><div class="zener-bar-tick"></div><div class="zener-bar-marker" id="mZenerMarker"></div></div>
+            <div class="zener-axis"><span>axial</span><span>A=1</span><span>diagonal</span></div>
           </div>
-          <div class="zener-row">
-            <span style="font-size:11px;color:#666">A =</span>
-            <span class="zener-val" id="bldZenerVal">—</span>
-            <span class="zener-label" id="bldZenerLabel">—</span>
+          <div class="viz-tiles">
+            <div class="metric-tile-mini"><span class="mv ax-x" id="mEx">—</span><span class="ml">E<sub>x</sub></span></div>
+            <div class="metric-tile-mini"><span class="mv ax-y" id="mEy">—</span><span class="ml">E<sub>y</sub></span></div>
+            <div class="metric-tile-mini"><span class="mv ax-z" id="mEz">—</span><span class="ml">E<sub>z</sub></span></div>
+            <div class="metric-tile-mini"><span class="mv ax-g" id="mGxy">—</span><span class="ml">G<sub>xy</sub></span></div>
+            <div class="metric-tile-mini"><span class="mv ax-g" id="mGyz">—</span><span class="ml">G<sub>yz</sub></span></div>
+            <div class="metric-tile-mini"><span class="mv ax-g" id="mGxz">—</span><span class="ml">G<sub>xz</sub></span></div>
+            <div class="metric-tile-mini"><span class="mv" id="mAniso">—</span><span class="ml">aniso</span></div>
+            <div class="metric-tile-mini"><span class="mv" id="mNuxy">—</span><span class="ml">ν<sub>xy</sub></span></div>
           </div>
-          <div class="zener-bar">
-            <div class="zener-bar-bg"></div>
-            <div class="zener-bar-tick"></div>
-            <div class="zener-bar-marker" id="bldZenerMarker"></div>
-          </div>
-          <div class="zener-axis"><span>axial</span><span>A=1</span><span>diagonal</span></div>
         </div>
-        <!-- RIGHT: engineering moduli -->
-        <div class="viz-tiles">
-          <div class="metric-tile-mini"><span class="mv" id="bldMEx" style="color:#22d3ee">—</span><span class="ml">E<sub>x</sub></span></div>
-          <div class="metric-tile-mini"><span class="mv" id="bldMEy" style="color:#e879f9">—</span><span class="ml">E<sub>y</sub></span></div>
-          <div class="metric-tile-mini"><span class="mv" id="bldMEz" style="color:#facc15">—</span><span class="ml">E<sub>z</sub></span></div>
-          <div class="metric-tile-mini"><span class="mv" id="bldMGxy" style="color:#a78bfa">—</span><span class="ml">G<sub>xy</sub></span></div>
-          <div class="metric-tile-mini"><span class="mv" id="bldMGyz" style="color:#a78bfa">—</span><span class="ml">G<sub>yz</sub></span></div>
-          <div class="metric-tile-mini"><span class="mv" id="bldMGxz" style="color:#a78bfa">—</span><span class="ml">G<sub>xz</sub></span></div>
-          <div class="metric-tile-mini"><span class="mv" id="bldMAniso">—</span><span class="ml">aniso</span></div>
-          <div class="metric-tile-mini"><span class="mv" id="bldMNuxy">—</span><span class="ml">ν<sub>xy</sub></span></div>
+        <span id="mNuxz" hidden>—</span>
+        <p class="note box" id="mHomogStatus">Sharing-weighted DSM-PBC, frame elements (axial + bending + torsion). Aniso = max(E)/min(E); 1.00 = isotropic. <strong>Validation:</strong> within 65–100% of literature (e.g., Octet ~67% of DFA ρ̄/9). Use as engineering guidance; cross-check against FEA for design-critical work.</p>
+      </div>
+
+      <div data-mode="builder">
+        <div class="viz-row3">
+          <div class="viz-tiles">
+            <div class="metric-tile-mini"><span class="mv" id="bldMBeams">0</span><span class="ml">Beams</span></div>
+            <div class="metric-tile-mini"><span class="mv"><span id="bldMDensity">0.0</span><small> %</small></span><span class="ml">Rel ρ̄</span></div>
+            <div class="metric-tile-mini"><span class="mv" id="bldMLength">0.0</span><span class="ml">Σ Length</span></div>
+            <div class="metric-tile-mini"><span class="mv" id="bldMNodes">—</span><span class="ml">Nodes</span></div>
+            <div class="metric-tile-mini"><span class="mv" id="bldMPbcNodes">—</span><span class="ml">PBC Nodes</span></div>
+            <div class="metric-tile-mini"><span class="mv" id="bldMMaxwell">—</span><span class="ml">Maxwell M</span></div>
+          </div>
+          <div class="viz-card">
+            <div class="stiff-canvas-wrap">
+              <canvas id="bldStiffSurfCv" class="stiff-canvas"></canvas>
+              <div id="bldStiffEmpty" class="stiff-empty-overlay">
+                <div class="se-icon"><svg class="ic"><use href="#i-warn"/></svg></div>
+                <div class="se-head" id="bldStiffEmptyHead">not stiff</div>
+                <div class="se-body" id="bldStiffEmptyBody">—</div>
+              </div>
+            </div>
+            <div class="zener-row"><span>A =</span><span class="zener-val" id="bldZenerVal">—</span><span class="zener-label" id="bldZenerLabel">—</span></div>
+            <div class="zener-bar"><div class="zener-bar-bg"></div><div class="zener-bar-tick"></div><div class="zener-bar-marker" id="bldZenerMarker"></div></div>
+            <div class="zener-axis"><span>axial</span><span>A=1</span><span>diagonal</span></div>
+          </div>
+          <div class="viz-tiles">
+            <div class="metric-tile-mini"><span class="mv ax-x" id="bldMEx">—</span><span class="ml">E<sub>x</sub></span></div>
+            <div class="metric-tile-mini"><span class="mv ax-y" id="bldMEy">—</span><span class="ml">E<sub>y</sub></span></div>
+            <div class="metric-tile-mini"><span class="mv ax-z" id="bldMEz">—</span><span class="ml">E<sub>z</sub></span></div>
+            <div class="metric-tile-mini"><span class="mv ax-g" id="bldMGxy">—</span><span class="ml">G<sub>xy</sub></span></div>
+            <div class="metric-tile-mini"><span class="mv ax-g" id="bldMGyz">—</span><span class="ml">G<sub>yz</sub></span></div>
+            <div class="metric-tile-mini"><span class="mv ax-g" id="bldMGxz">—</span><span class="ml">G<sub>xz</sub></span></div>
+            <div class="metric-tile-mini"><span class="mv" id="bldMAniso">—</span><span class="ml">aniso</span></div>
+            <div class="metric-tile-mini"><span class="mv" id="bldMNuxy">—</span><span class="ml">ν<sub>xy</sub></span></div>
+          </div>
+        </div>
+        <p class="note box" id="bldHomogStatus">Sharing-weighted DSM-PBC, frame elements. Material above. <strong>Validation:</strong> within 65–100% of literature for known cells; treat as engineering guidance.</p>
+      </div>
+
+      <h3 class="sub-h">export</h3>
+      <div data-mode="library">
+        <div class="sc-group sl" id="grp-cell" data-w-slider="cell">
+          <label for="cell">cell size</label>
+          <span class="sv" id="cellValue">1.50</span>
+          <input type="range" id="cell" min="0.5" max="3.0" step="0.05" value="1.5" oninput="onParamChange(this,'cellValue')">
+        </div>
+        <div class="btn-row">
+          <button id="exportBtn" class="btn" onclick="onExportJSON()">JSON</button>
+          <button id="exportLtcxBtn" class="btn" onclick="onExportLTCX()">LTCX</button>
+          <button id="exportCsvBtn" class="btn" onclick="onExportCSV()">CSV</button>
         </div>
       </div>
-      <div id="bldHomogStatus" style="font-size:10px;color:#555;line-height:1.5;padding:6px 10px;background:#0a0c14;border:0.5px solid #2a2a3a;border-radius:6px;margin-bottom:14px">Sharing-weighted DSM-PBC, frame elements. Material on Library tab. <strong style="color:#888">Validation:</strong> within 65–100% of literature for known cells; treat as engineering guidance.</div>
-
-      <hr class="divider">
-      <div class="export-row">
-        <button id="bldExportBtn" class="export-btn" onclick="bldExportJSON()">JSON</button>
-        <button id="bldExportLtcxBtn" class="export-btn" onclick="bldExportLTCX()">LTCX</button>
-        <button id="bldExportCsvBtn" class="export-btn" onclick="bldExportCSV()">CSV</button>
+      <div data-mode="builder">
+        <div class="btn-row">
+          <button id="bldExportBtn" class="btn" onclick="bldExportJSON()">JSON</button>
+          <button id="bldExportLtcxBtn" class="btn" onclick="bldExportLTCX()">LTCX</button>
+          <button id="bldExportCsvBtn" class="btn" onclick="bldExportCSV()">CSV</button>
+        </div>
       </div>
-    </div><!-- /builderPanel -->
+    </section>
 
+
+  </div>
+  <nav id="sectionsBar" aria-label="Sections">
+    <div class="sb-fallback">
+      <button type="button" data-section="cell" class="on"><svg class="ic"><use href="#i-cell"/></svg>Cell</button>
+      <button type="button" data-section="draw"><svg class="ic"><use href="#i-pen"/></svg>Draw</button>
+      <button type="button" data-section="geometry"><svg class="ic"><use href="#i-volume"/></svg>Geometry</button>
+      <button type="button" data-section="analyze"><svg class="ic"><use href="#i-analyze"/></svg>Analyze</button>
+    </div>
+  </nav>
+  </aside>
   </div>
 </div>
 
@@ -571,18 +797,17 @@ var BEAM_CATALOGS = {"simple_cubic":[[-1,-1,-1,1,-1,-1],[-1,-1,-1,-1,1,-1],[-1,-
 var TOPO_DESC = {"simple_cubic":"Cube edges only. Bending-dominated, low stiffness, highly anisotropic.","bcc":"Corners → center. Stretching-dominated body diagonals.","fcc":"Face diagonals (X-shape on each face). 12 struts, near-isotropic stretch.","diamond":"sp3 tetrahedral bonds: 4 interior nodes each bonded to 1 corner + 3 face centers.","octahedron":"Single octahedron — 6 face centers, 12 edges. Pin-jointed stable.","octet":"Fuller's octet truss: octahedron + corner tetrahedra. Maxwell-stable.","cuboctahedron":"Vertices at cube edge midpoints. 24 edges, 4-fold + 3-fold symmetry.","bcc_z":"BCC + 4 vertical Z-edges. Common in metal PBF orthopedic scaffolds.","fcc_z":"FCC face-X + 4 vertical Z-edges. Reinforced stiffness with Z bias.","bcc_edges":"BCC + all 12 cube edges. Adds bending resistance to body diagonals.","fcc_edges":"FCC face-X + all 12 cube edges. High connectivity at corners.","tesseract":"4D hypercube projection: outer + inner cube + 8 corner connectors.","truncated_cube":"Cube with chamfered corners. 6 octagonal faces + 8 triangle corners.","cartesian_cross":"Three orthogonal axes only. Minimum cubic — useful as reference.","kelvin":"Truncated octahedron (Kelvin cell). 36 edges. Foam-mechanics canonical; minimal surface partition.","rhombic_dodec":"Voronoi cell of FCC packing. 14 vertices, 24 edges. Common in trabecular bone scaffolds.","reentrant":"3D re-entrant auxetic (Evans 1994). Bow-tie verticals. Negative Poisson's ratio in compression.","f2bcc":"FCC face-X + BCC body diagonals (no cube edges). 20 struts; near-isotropic stretch with shear coupling.","f2bcc_z":"F2BCC + 4 vertical Z-edges. 24 struts. Strong reinforcement for axial compression.","tetrahedron":"Single regular tetrahedron inscribed in cube (4 alternating corners). Minimum stable 3D truss.","octet_z":"Octet truss + 4 vertical Z-edges. 40 struts. Maximum-stiffness reinforced topology.","oct_edges":"Octahedron + cube edges. 24 struts. Combines axial-cross with frame-stabilized cube."};
 
 var MAX_BEAMS = 256;  // shader uniform array bound — covers full octahedral symmetry orbits stacked
-var IND_READY = '#22d3ee', IND_WORKING = '#f59e0b';
 var currentQuality = 'medium';
 var currentTile = 1;  // 1, 2, or 3 — uniform tiling factor via SDF modulo
 var raymarcher = null;
 
 // ─── Status indicators ──────────────────────────────────────────────────────
+// The shader pill is folded into #status: "Compiling…" while a program builds, then the caller sets "Ready".
 function setShaderStatus(working) {
-  var d = document.getElementById('dotShader');
-  var l = document.getElementById('labelShader');
-  d.style.background = working ? IND_WORKING : IND_READY;
-  l.style.color = working ? IND_WORKING : IND_READY;
-  l.textContent = working ? 'compiling' : 'ready';
+  var s = document.getElementById('status');
+  if (!s) return;
+  s.classList.toggle('busy', !!working);
+  if (working) s.textContent = 'Compiling…';
 }
 
 // ─── Parameter readout ──────────────────────────────────────────────────────
@@ -1448,11 +1673,11 @@ function zenerAnisotropy(C) {
   var C44 = (C[21] + C[28] + C[35]) / 3;  // S_44, S_55, S_66 averaged
   var A = (Math.abs(C11 - C12) > 1e-12) ? 2 * C44 / (C11 - C12) : 1;
   var color, label;
-  if (A < 0.7) { color = '#e879f9'; label = 'strongly axial'; }
-  else if (A < 0.9) { color = '#e879f9'; label = 'axial dominant'; }
-  else if (A < 1.1) { color = '#888'; label = 'near-isotropic'; }
-  else if (A < 1.5) { color = '#22d3ee'; label = 'diagonal dominant'; }
-  else { color = '#aaff00'; label = 'strongly diagonal'; }
+  if (A < 0.7) { color = 'var(--axis-y)'; label = 'strongly axial'; }
+  else if (A < 0.9) { color = 'var(--axis-y)'; label = 'axial dominant'; }
+  else if (A < 1.1) { color = 'var(--ink-dim)'; label = 'near-isotropic'; }
+  else if (A < 1.5) { color = 'var(--axis-x)'; label = 'diagonal dominant'; }
+  else { color = 'var(--accent)'; label = 'strongly diagonal'; }
   return { A: A, label: label, color: color };
 }
 
@@ -1504,7 +1729,7 @@ function updateMetrics() {
   document.getElementById('mPbcNodes').textContent = h.nPbc;
   var mEl = document.getElementById('mMaxwell');
   mEl.textContent = (h.maxwell >= 0 ? '+' : '') + h.maxwell;
-  mEl.style.color = h.maxwell >= 0 ? '' : '#ff6b9a';
+  mEl.style.color = h.maxwell >= 0 ? '' : 'var(--danger)';
   // Phase 2: DSM-PBC engineering constants
   var ids = ['mEx','mEy','mEz','mGyz','mGxz','mGxy','mAniso','mNuxy','mNuxz'];
   if (beams.length === 0) {
@@ -1540,7 +1765,7 @@ function updateMetrics() {
       var Emax = maxEdir(d.S) * 1.15;  // sample over unit sphere → true max directional E. 1.05 = small headroom so surface fits inside r=1 bound.
       libStiffSurf.update(d.S, Emax);
       setStiffEmpty('m', 'hide', null, false);
-      document.getElementById('mHomogStatus').innerHTML = 'Sharing-weighted DSM-PBC, frame elements (axial + bending + torsion). Aniso = max(E)/min(E); 1.00 = isotropic. <strong style="color:#888">Validation:</strong> within 65–100% of literature (e.g., Octet ~67% of DFA ρ̄/9). Use as engineering guidance; cross-check against FEA for design-critical work.';
+      document.getElementById('mHomogStatus').innerHTML = 'Sharing-weighted DSM-PBC, frame elements (axial + bending + torsion). Aniso = max(E)/min(E); 1.00 = isotropic. <strong>Validation:</strong> within 65–100% of literature (e.g., Octet ~67% of DFA ρ̄/9). Use as engineering guidance; cross-check against FEA for design-critical work.';
     } else {
       ids.forEach(function(id){ var el = document.getElementById(id); if (el) el.textContent = '—'; });
       document.getElementById('mZenerVal').textContent = '—';
@@ -2136,7 +2361,7 @@ var lastProject = null;  // populated each frame; used by Builder picking math
 
 var clipState={axis:0,pos:0.0,side:1};
 function onClipPill(axis){if(clipState.axis===axis){clipState.axis=0;}else{clipState.axis=axis;clipState.pos=0.0;clipState.side=1;}updateClipPills();if(raymarcher)raymarcher._dirty=true;}
-function updateClipPills(){var cols={1:'#22d3ee',2:'#e879f9',3:'#facc15'},nm={1:'X',2:'Y',3:'Z'};[1,2,3].forEach(function(a){var el=document.getElementById('clipPill'+nm[a]);if(!el)return;if(clipState.axis===a){el.classList.add('active');el.style.color=cols[a];el.style.borderColor=cols[a];}else{el.classList.remove('active');el.style.color='#555';el.style.borderColor='#2a2a3a';}});}
+function updateClipPills(){var nm={1:'X',2:'Y',3:'Z'};[1,2,3].forEach(function(a){var el=document.getElementById('clipPill'+nm[a]);if(!el)return;el.classList.toggle('active',clipState.axis===a);el.setAttribute('aria-pressed',clipState.axis===a?'true':'false');});if(window.F13UI&&F13UI.onClipChange)try{F13UI.onClipChange(clipState.axis);}catch(e){console.error(e);}}
 function setupClipHandleDrag(){var el=document.getElementById('clipHandleHit');if(!el||el.__wired)return;el.__wired=true;var lx=0,ly=0,sc=false;el.addEventListener('pointerdown',function(e){var hs=window.__clipHandleScreen;if(!hs)return;sc=true;lx=e.clientX;ly=e.clientY;try{el.setPointerCapture(e.pointerId);}catch(_){}e.preventDefault();e.stopPropagation();});el.addEventListener('pointermove',function(e){if(!sc)return;var hs=window.__clipHandleScreen;if(!hs)return;var pd=(e.clientX-lx)*hs.dirx+(e.clientY-ly)*hs.diry;var dPos=(pd*(hs.axisStep/(hs.len||1)))/(hs.hHalf||1);clipState.pos=Math.max(-1.0,Math.min(1.0,clipState.pos+dPos));lx=e.clientX;ly=e.clientY;if(raymarcher)raymarcher._dirty=true;e.preventDefault();e.stopPropagation();});function end(e){if(sc){sc=false;try{el.releasePointerCapture(e.pointerId);}catch(_){}}}el.addEventListener('pointerup',end);el.addEventListener('pointercancel',end);}
 function drawClipHandle(rotMat,canvasW,canvasH,camZoom,hHalf){var hit=document.getElementById('clipHandleHit');window.__clipHandleScreen=null;if(clipState.axis<1){if(hit)hit.style.display='none';return;}var cv=document.getElementById('axisCanvas');if(!cv){return;}var ctx=cv.getContext('2d');var H_HALF=hHalf||1;function proj(p){var tx=rotMat[0]*p[0]+rotMat[1]*p[1]+rotMat[2]*p[2];var ty=rotMat[3]*p[0]+rotMat[4]*p[1]+rotMat[5]*p[2];var tz=rotMat[6]*p[0]+rotMat[7]*p[1]+rotMat[8]*p[2];var pcz=tz-camZoom;if(pcz>-0.1)return null;var sscl=Math.min(canvasW,canvasH);return [canvasW/2+(-1.6*tx/pcz)*sscl,canvasH/2-(-1.6*ty/pcz)*sscl];}var aIdx=clipState.axis-1,cp=clipState.pos*H_HALF;var c=[0,0,0];c[aIdx]=cp;var sc=proj(c);if(!sc){if(hit)hit.style.display='none';return;}var col=['#22d3ee','#e879f9','#facc15'][aIdx];ctx.save();var free=[0,1,2].filter(function(k){return k!==aIdx;});var sg=[[-1,-1],[1,-1],[1,1],[-1,1]];var pts=sg.map(function(g){var p=[0,0,0];p[aIdx]=cp;p[free[0]]=g[0]*H_HALF;p[free[1]]=g[1]*H_HALF;return proj(p);});if(pts.every(Boolean)){ctx.globalAlpha=0.5;ctx.lineWidth=1.5;ctx.strokeStyle=col;ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);ctx.lineTo(pts[1][0],pts[1][1]);ctx.lineTo(pts[2][0],pts[2][1]);ctx.lineTo(pts[3][0],pts[3][1]);ctx.closePath();ctx.stroke();}ctx.globalAlpha=0.95;ctx.lineWidth=2;ctx.strokeStyle=col;ctx.beginPath();ctx.arc(sc[0],sc[1],9,0,6.2832);ctx.stroke();ctx.globalAlpha=1;ctx.fillStyle=col;ctx.beginPath();ctx.arc(sc[0],sc[1],3.2,0,6.2832);ctx.fill();ctx.restore();var e=[0,0,0];e[aIdx]=cp+0.4;var se=proj(e);var dirx=0,diry=0,len=0;if(se){var dx=se[0]-sc[0],dy=se[1]-sc[1];len=Math.hypot(dx,dy)||1;dirx=dx/len;diry=dy/len;}window.__clipHandleScreen={x:sc[0],y:sc[1],dirx:dirx,diry:diry,len:len,axisStep:0.4,hHalf:H_HALF};if(hit){hit.style.left=sc[0]+'px';hit.style.top=sc[1]+'px';hit.style.display='block';}}
 function drawAxisGizmo(rotMat, canvasW, canvasH, camZoom) {
@@ -2715,18 +2940,22 @@ function flashExportButton(btnId, msg) {
   var btn = document.getElementById(btnId);
   if (!btn) return;
   var orig = btn.textContent;
-  btn.textContent = msg || '\u2713';
-  btn.style.color = '#c8f542';
-  btn.style.borderColor = '#c8f542';
+  btn.textContent = msg || 'Done';
+  btn.classList.add('ok');
   setTimeout(function() {
     btn.textContent = orig;
-    btn.style.color = '#a896ff';
-    btn.style.borderColor = '#7c6ff7';
+    btn.classList.remove('ok');
   }, 1800);
 }
 
+// The recipe the header paths (Mesh, Lab, Queue) send: the active source's cell.
+// Library -> 'beam' (buildExportJSON), Builder -> 'beam-builder' (bldBuildExportData). Both formats unchanged.
+function activeRecipe() {
+  return (currentTab === 'builder') ? bldBuildExportData() : buildExportJSON();
+}
+
 function openInMesh() {
-  var data = buildExportJSON();
+  var data = activeRecipe();
   var encoded = encodeURIComponent(JSON.stringify(data));
   window.open('https://mshomper.github.io/f13ld.mesh/?r=' + encoded, '_blank');
 }
@@ -2735,7 +2964,7 @@ function openInMesh() {
 // "#" so its length never matters (the recipe never leaves the browser).
 // F13LD.lab (v0.14.0+) reads #r= links for every F13LD family.
 function openInLab(){
-  var data=buildExportJSON();
+  var data=activeRecipe();
   window.open('https://mshomper.github.io/f13ld.lab/#r='+encodeURIComponent(JSON.stringify(data)),'_blank');
 }
 
@@ -2746,7 +2975,7 @@ function onExportJSON() {
   var ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
   downloadBlob(new Blob([json], { type: 'application/json' }), 'beam_' + data.topology.name + '_' + ts + '.json');
   if (navigator.clipboard) navigator.clipboard.writeText(json).catch(function(){});
-  flashExportButton('exportBtn', 'Copied + downloaded \u2713');
+  flashExportButton('exportBtn', 'Copied');
 }
 
 function onExportLTCX() {
@@ -2755,7 +2984,7 @@ function onExportLTCX() {
   var xml = buildExportLTCX(beams, p.cell, p.topology);
   var ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
   downloadBlob(new Blob([xml], { type: 'application/xml' }), 'beam_' + p.topology + '_' + ts + '.ltcx');
-  flashExportButton('exportLtcxBtn', 'Downloaded \u2713');
+  flashExportButton('exportLtcxBtn', 'Saved');
 }
 
 function onExportCSV() {
@@ -2769,7 +2998,7 @@ function onExportCSV() {
   ]);
   var ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
   downloadBlob(new Blob([zip], { type: 'application/zip' }), 'beam_' + p.topology + '_' + ts + '.zip');
-  flashExportButton('exportCsvBtn', 'Downloaded \u2713');
+  flashExportButton('exportCsvBtn', 'Saved');
 }
 
 // ─── Tab switching ────────────────────────────────────────────────────────
@@ -2778,8 +3007,8 @@ var sessionCustomCells = {};  // catalog of custom cells pushed from Builder thi
 
 function switchTab(tab) {
   currentTab = tab;
-  document.getElementById('libraryPanel').style.display = (tab === 'library') ? 'block' : 'none';
-  document.getElementById('builderPanel').style.display = (tab === 'builder') ? 'block' : 'none';
+  // source choice: the section blocks marked data-mode follow it (CSS on html[data-mode])
+  document.documentElement.setAttribute('data-mode', tab);
   document.getElementById('tabLibrary').classList.toggle('active', tab === 'library');
   document.getElementById('tabBuilder').classList.toggle('active', tab === 'builder');
   if (tab === 'library') {
@@ -2787,6 +3016,8 @@ function switchTab(tab) {
     if (raymarcher) {
       raymarcher.setParams(getParams());
     }
+    // the material (or anything else) may have changed while Builder was active: never show stale Library results
+    updateMetrics();
   } else {
     Builder.active = true;
     Builder.refresh();
@@ -3118,7 +3349,7 @@ var Builder = {
     document.getElementById('bldMPbcNodes').textContent = h.nPbc;
     var mEl = document.getElementById('bldMMaxwell');
     mEl.textContent = (h.maxwell >= 0 ? '+' : '') + h.maxwell;
-    mEl.style.color = h.maxwell >= 0 ? '' : '#ff6b9a';
+    mEl.style.color = h.maxwell >= 0 ? '' : 'var(--danger)';
     // Phase 2: DSM-PBC engineering constants
     var ids = ['bldMEx','bldMEy','bldMEz','bldMGyz','bldMGxy','bldMGxz','bldMAniso','bldMNuxy'];
     if (this.beams.length === 0) {
@@ -3153,7 +3384,7 @@ var Builder = {
         var Emax = maxEdir(d.S) * 1.15;  // sample over unit sphere → true max directional E. 1.05 = small headroom so surface fits inside r=1 bound.
         bldStiffSurf.update(d.S, Emax);
         setStiffEmpty('bld', 'hide', null, true);
-        document.getElementById('bldHomogStatus').innerHTML = 'Sharing-weighted DSM-PBC, frame elements. Material on Library tab. <strong style="color:#888">Validation:</strong> within 65–100% of literature for known cells; treat as engineering guidance.';
+        document.getElementById('bldHomogStatus').innerHTML = 'Sharing-weighted DSM-PBC, frame elements. Material above. <strong>Validation:</strong> within 65–100% of literature for known cells; treat as engineering guidance.';
       } else {
         ids.forEach(function(id){ var el = document.getElementById(id); if (el) el.textContent = '—'; });
         document.getElementById('bldZenerVal').textContent = '—';
@@ -3216,10 +3447,6 @@ function bldNewCell() {
   Builder.refresh();
   Builder.updateStatus('New empty cell. Click a snap point to begin a beam.');
 }
-function bldRedraw() {
-  Builder.showGhost = document.getElementById('bldGhost').checked;
-  if (raymarcher) raymarcher._dirty = true;
-}
 function bldSetRadius(v) {
   Builder.radius = v;
   document.getElementById('bldRadiusValue').textContent = v.toFixed(3);
@@ -3266,7 +3493,7 @@ function bldExportJSON() {
   var ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
   downloadBlob(new Blob([json], { type: 'application/json' }), 'beam_' + _bldNameSlug() + '_' + ts + '.json');
   if (navigator.clipboard) navigator.clipboard.writeText(json).catch(function(){});
-  flashExportButton('bldExportBtn', 'Copied + downloaded \u2713');
+  flashExportButton('bldExportBtn', 'Copied');
 }
 
 function bldExportLTCX() {
@@ -3274,7 +3501,7 @@ function bldExportLTCX() {
   var xml = buildExportLTCX(Builder.beams, 1.5, name);
   var ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
   downloadBlob(new Blob([xml], { type: 'application/xml' }), 'beam_' + _bldNameSlug() + '_' + ts + '.ltcx');
-  flashExportButton('bldExportLtcxBtn', 'Downloaded \u2713');
+  flashExportButton('bldExportLtcxBtn', 'Saved');
 }
 
 function bldExportCSV() {
@@ -3286,7 +3513,7 @@ function bldExportCSV() {
   ]);
   var ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
   downloadBlob(new Blob([zip], { type: 'application/zip' }), 'beam_' + _bldNameSlug() + '_' + ts + '.zip');
-  flashExportButton('bldExportCsvBtn', 'Downloaded \u2713');
+  flashExportButton('bldExportCsvBtn', 'Saved');
 }
 
 function bldOpenInMesh() {
@@ -3428,7 +3655,7 @@ document.addEventListener('DOMContentLoaded', function() {
   var glEl = document.getElementById('glCanvas');
   if (!glEl) { console.error('Canvas missing'); return; }
   raymarcher = new Raymarcher(glEl);
-  f13View = f13ViewInit({tool:'beam', host:document.getElementById('cw'), canvas:glEl, css:'top:38px', redraw:function(){ raymarcher._dirty = true; }});
+  f13View = f13ViewInit({tool:'beam', host:document.getElementById('cw'), canvas:glEl, redraw:function(){ raymarcher._dirty = true; }});
   setupClipHandleDrag();
   updateClipPills();
   if (!raymarcher.gl) {
@@ -3469,6 +3696,108 @@ document.addEventListener('DOMContentLoaded', function() {
   }
   raymarcher.setParams(getParams());
 });
+
+/* ============================================================================
+   F13LD UI template · layout.js — sections (one at a time) + phone bottom sheet.
+   Generic: sections come from .sec[data-section] in DOM order. window.F13UI is the hook surface the wiring uses:
+     F13UI.sections / active / isPhone() / showSection(id) / scrollToSection(id) (alias)
+     F13UI.sectionOf(el) / setSheet('peek'|'full')
+     F13UI.onSectionChange(id)  set by f13ui-wire.js
+   ========================================================================== */
+(function(){
+  const UI=window.F13UI=window.F13UI||{};
+  const SECS=[...document.querySelectorAll('.sec[data-section]')].map(s=>s.dataset.section);   // order = DOM order
+  const mq=window.matchMedia('(max-width:899px)');
+  const scroller=document.getElementById('ctrlScroll');
+  const pane=document.getElementById('ctrlPane');
+  const secEl=id=>document.getElementById('sec-'+id);
+  UI.sections=SECS.slice();
+  UI.active=SECS[0];
+  UI.isPhone=()=>mq.matches;
+  function setActive(id){
+    if(!SECS.includes(id)||id===UI.active)return;
+    UI.active=id;
+    document.querySelectorAll('.sb-fallback [data-section]').forEach(b=>b.classList.toggle('on',b.dataset.section===id));
+    if(UI.onSectionChange)try{UI.onSectionChange(id);}catch(e){console.error(e);}
+  }
+  function applySections(){
+    SECS.forEach(s=>secEl(s).classList.toggle('on',s===UI.active));
+    updateFades();
+  }
+  UI.showSection=function(id){
+    if(!SECS.includes(id))return;
+    const changed=id!==UI.active;
+    setActive(id);applySections();
+    if(changed)scroller.scrollTop=0;
+  };
+  UI.scrollToSection=UI.showSection;
+  UI.sectionOf=function(el){const s=el&&el.closest&&el.closest('.sec[data-section]');return s?s.dataset.section:null;};
+  // the column scrolls only when the active section is taller than it; fade only the edges that hide content
+  function updateFades(){
+    const y=scroller.scrollTop,max=scroller.scrollHeight-scroller.clientHeight;
+    scroller.classList.toggle('ft',y>1);
+    scroller.classList.toggle('fb',max-y>1);
+  }
+  scroller.addEventListener('scroll',updateFades,{passive:true});
+  if(window.ResizeObserver){const ro=new ResizeObserver(updateFades);ro.observe(scroller);SECS.forEach(s=>ro.observe(secEl(s)));}
+  document.querySelectorAll('.sb-fallback [data-section]').forEach(b=>b.addEventListener('click',()=>UI.showSection(b.dataset.section)));
+
+  // header height drives the phone viewer height (the header wraps on phones)
+  const hdr=document.querySelector('.f13ld-header');
+  function setHdr(){document.documentElement.style.setProperty('--hdr-h',hdr.offsetHeight+'px');}
+  setHdr();if(window.ResizeObserver)new ResizeObserver(setHdr).observe(hdr);
+
+  // phone bottom sheet: drag the handle between peek (~45dvh) and full (~88dvh)
+  const handle=document.getElementById('sheetHandle');
+  let sheetState='peek';
+  const vh=()=>window.innerHeight;
+  const snapH=s=>Math.round(vh()*(s==='full'?0.88:0.45));
+  function setSheet(s,animate){
+    sheetState=s;
+    if(!animate)pane.classList.add('dragging');
+    pane.style.setProperty('--sheet-h',snapH(s)+'px');
+    if(!animate)requestAnimationFrame(()=>pane.classList.remove('dragging'));
+  }
+  UI.setSheet=s=>{if(s==='peek'||s==='full')setSheet(s,true);};
+  let dragY=null,startH=0,lastY=0,lastT=0,vel=0,moved=false;
+  handle.addEventListener('pointerdown',e=>{
+    if(!mq.matches)return;
+    dragY=e.clientY;lastY=e.clientY;lastT=performance.now();vel=0;moved=false;
+    startH=pane.getBoundingClientRect().height;
+    pane.classList.add('dragging');handle.setPointerCapture(e.pointerId);
+  });
+  handle.addEventListener('pointermove',e=>{
+    if(dragY===null)return;
+    const dy=e.clientY-dragY;if(Math.abs(dy)>4)moved=true;
+    const h=Math.max(snapH('peek')*0.6,Math.min(snapH('full'),startH-dy));
+    pane.style.setProperty('--sheet-h',h+'px');
+    const t=performance.now();vel=(e.clientY-lastY)/Math.max(1,t-lastT);lastY=e.clientY;lastT=t;
+  });
+  function endDrag(){
+    if(dragY===null)return;
+    dragY=null;pane.classList.remove('dragging');
+    if(!moved){setSheet(sheetState==='peek'?'full':'peek',true);return;}
+    const h=pane.getBoundingClientRect().height,mid=(snapH('peek')+snapH('full'))/2;
+    setSheet(vel<-0.4?'full':vel>0.4?'peek':(h>mid?'full':'peek'),true);
+  }
+  handle.addEventListener('pointerup',endDrag);
+  handle.addEventListener('pointercancel',endDrag);
+  handle.addEventListener('click',e=>{if(e.detail===0&&mq.matches)setSheet(sheetState==='peek'?'full':'peek',true);});   // keyboard
+
+  // the viewer's redraw request (beam: the ray-march redraws when _dirty)
+  function requestRender(){if(typeof raymarcher!=='undefined'&&raymarcher)raymarcher._dirty=true;}
+  function applyLayout(){
+    applySections();
+    if(mq.matches)setSheet(sheetState,false);
+    else pane.style.removeProperty('--sheet-h');
+    requestRender();
+  }
+  mq.addEventListener?mq.addEventListener('change',applyLayout):mq.addListener(applyLayout);
+  window.addEventListener('resize',()=>{if(mq.matches)setSheet(sheetState,false);requestRender();});
+  const cwEl=document.getElementById('cw');
+  if(window.ResizeObserver&&cwEl)new ResizeObserver(requestRender).observe(cwEl);   // the sheet and the window both resize the viewer
+  applyLayout();
+})();
 </script>
 
 <!-- ===================================================================== -->
@@ -3481,8 +3810,8 @@ document.addEventListener('DOMContentLoaded', function() {
 <!-- ---- PER-TOOL THEME (only block that changes color per tool) -------- -->
 <style id="f13h-theme">
   :root{
-    --f13h-accent:      #22d3ee;
-    --f13h-accent-soft: #3a9fb5;
+    --f13h-accent:      oklch(0.80 0.15 121);
+    --f13h-accent-soft: oklch(0.66 0.12 121);
     --f13h-panel:       #0e0e1a;
     --f13h-panel2:      #1a1a2e;
     --f13h-bg:          #06080f;
@@ -3491,7 +3820,7 @@ document.addEventListener('DOMContentLoaded', function() {
     --f13h-text:        #e0e0ff;
     --f13h-dim:         #7c8aaa;
     --f13h-bright:      #f0f1ff;
-    --f13h-glow:        rgba(34,211,238,0.20);
+    --f13h-glow:        oklch(0.80 0.15 121 / 0.20);
   }
 </style>
 
@@ -3599,14 +3928,14 @@ document.addEventListener('DOMContentLoaded', function() {
   var INTRO = 'F13LD.beam builds strut-and-node lattices \u2014 pick a named cubic cell in the Library and tune it, or draw your own on a snap grid in the Builder. Live beam-frame homogenization reports the stiffness either way. Tap any i beside a control to jump here.';
 
   var SECTIONS = [
-    { title:'Mode', items:[
-      { id:'tabs', label:'Library / Builder', anchor:{after:'#tabBuilder'},
+    { title:'Cell source', items:[
+      { id:'tabs', label:'source · Library / Builder', anchor:{row:'#tabBuilder'},
         what:'Switches between the preset Library and the freeform Builder.',
         see:'Library = pick a named cubic cell and tune it; Builder = place struts on a snap grid to design your own.',
-        why:'Catalog speed vs. full custom control \u2014 cells move between them ("Edit this cell in Builder" / "Push to Library").' }
+        why:'Catalog speed vs. full custom control \u2014 cells move between them ("Edit in Builder" / "Push to Library").' }
     ]},
     { title:'Library \u00b7 topology', items:[
-      { id:'topology', label:'topology', anchor:{sec:'#topology'},
+      { id:'topology', label:'topology', anchor:{row:'#topology'},
         what:'The unit-cell strut pattern: foundational (Simple Cubic, BCC, FCC, diamond), truss family (octet, octahedron), reinforced hybrids, polyhedral (Kelvin, rhombic dodecahedron), and novel / auxetic cells.',
         see:'Swaps the whole beam network; the description and live metrics update.',
         why:'Each topology has its own stiffness signature and Maxwell number \u2014 stretch- versus bending-dominated.' }
@@ -3646,25 +3975,25 @@ document.addEventListener('DOMContentLoaded', function() {
         why:'LTCX carries the full beam-and-node graph; JSON round-trips within F13LD.' }
     ]},
     { title:'Builder \u00b7 cell', items:[
-      { id:'cellname', label:'cell name', anchor:{sec:'#bldCellName'},
+      { id:'cellname', label:'cell name', anchor:{row:'#bldCellName'},
         what:'Names your custom cell; "Push to Library" saves it, "New" clears the canvas.',
         see:'The name travels with the cell when you push it to the Library.',
         why:'Round-trips a hand-built cell into the catalog alongside the presets.' }
     ]},
     { title:'Builder \u00b7 editing', items:[
-      { id:'snap', label:'snap density \u00b7 15 / 27 / 63', anchor:{sec:'#btnSnapCoarse'},
+      { id:'snap', label:'snap density \u00b7 15 / 27 / 63', anchor:{row:'#btnSnapCoarse'},
         what:'Resolution of the node grid you snap struts to \u2014 coarse 15, medium 27, fine 63 points.',
         see:'More snap points = finer placement and denser candidate nodes.',
         why:'Trades placement precision against a cleaner, simpler grid.' },
-      { id:'edit', label:'edit \u00b7 Add / Remove', anchor:{sec:'#btnModeAdd'},
+      { id:'edit', label:'edit \u00b7 Add / Remove', anchor:{row:'#btnModeAdd'},
         what:'Whether clicking snap points adds or removes beams.',
         see:'Add draws struts between clicked nodes; Remove deletes them.',
         why:'The core draw mode of the Builder.' },
-      { id:'bldradius', label:'radius', range:'0.02 \u2013 0.30', anchor:{sec:'#bldRadius'},
+      { id:'bldradius', label:'radius', range:'0.02 \u2013 0.30', anchor:{row:'#bldRadius'},
         what:'Strut radius for the custom cell (cell-local units).',
         see:'Thickens or thins every beam in the build.',
         why:'Relative-density dial for your hand-built lattice.' },
-      { id:'symmetry', label:'symmetry', anchor:{sec:'#bldSymmetry'},
+      { id:'symmetry', label:'symmetry', anchor:{row:'#bldSymmetry'},
         what:'Mirrors or rotations applied to each beam you place: none, mirror X/Y/Z, mirror XYZ (8), cubic rotations (24), or full octahedral (48).',
         see:'One drawn strut is replicated into a symmetric set automatically.',
         why:'Build a high-symmetry cell from a few strokes \u2014 enforces cubic / octahedral order.' },
@@ -3672,14 +4001,10 @@ document.addEventListener('DOMContentLoaded', function() {
         what:'Step back or forward through edits, or clear the cell.',
         see:'Reverts or replays beam placements.',
         why:'Safe experimentation while drawing.' },
-      { id:'bldtiling', label:'tiling \u00b7 1\u00b3 / 2\u00b3 / 3\u00b3', anchor:{sec:'#bldTile1'},
+      { id:'bldtiling', label:'tiling \u00b7 1\u00b3 / 2\u00b3 / 3\u00b3', anchor:{row:'#bldTile1'},
         what:'Cell repeats across the Builder preview.',
         see:'A 1-, 8-, or 27-cell block of your custom cell.',
-        why:'Checks tiling and connectivity across cell boundaries.' },
-      { id:'ghost', label:'ghost preview', anchor:{row:'#bldGhost'},
-        what:'Shows a faint preview of the beam under your cursor before you place it.',
-        see:'A ghost strut follows the hover; off hides it.',
-        why:'Aim before committing a beam.' }
+        why:'Checks tiling and connectivity across cell boundaries.' }
     ]},
     { title:'Builder \u00b7 export', items:[
       { id:'bldexport', label:'JSON / LTCX / CSV',
@@ -3845,6 +4170,49 @@ document.addEventListener('DOMContentLoaded', function() {
 })();
 </script>
 <!-- =====================  END F13LD HELP SYSTEM  ======================= -->
+
+<!-- Help "show": each drawer card gets a button that jumps to its control (template behaviour; the widget stage's f13ui-wire replaces this block) -->
+<style id="f13ui-help-show">
+.f13w-show{position:relative;margin-left:auto;display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 8px;border:1px solid var(--hair-strong);border-radius:999px;background:none;color:var(--ink-dim);font:500 11px var(--lq-font);cursor:pointer}
+.f13w-show::after{content:'';position:absolute;left:50%;top:50%;width:max(100%,44px);height:44px;transform:translate(-50%,-50%)}
+.f13w-show:hover{color:var(--accent);border-color:var(--accent-line)}
+.f13w-flash{border-radius:12px;animation:f13wFlash 1.4s var(--ease)}
+@keyframes f13wFlash{0%,60%{box-shadow:0 0 0 2px var(--accent-line),0 0 0 6px var(--accent-soft)}100%{box-shadow:0 0 0 0 transparent}}
+</style>
+<script id="f13ui-help-show">
+(function(){
+  const UI=window.F13UI=window.F13UI||{};
+  // help card id → selector of its control
+  const TARGETS={tabs:'#tabBuilder',topology:'#topology',radius:'#radius',cell:'#cell',tiling:'#btnTile1',matE:'#matE',matNu:'#matNu',
+    stiffness:'#stiffSurfCv',export:'#exportBtn',cellname:'#bldCellName',snap:'#btnSnapCoarse',edit:'#btnModeAdd',bldradius:'#bldRadius',
+    symmetry:'#bldSymmetry',history:'#bldUndoBtn',bldtiling:'#bldTile1',bldexport:'#bldExportBtn',quality:'#btnQMed'};
+  const reduce=()=>window.matchMedia&&matchMedia('(prefers-reduced-motion:reduce)').matches;
+  UI.revealControl=function(sel){
+    const el=typeof sel==='string'?document.querySelector(sel):sel;if(!el)return false;
+    const md=el.closest('[data-mode]');                       // Library / Builder block: switch the source first
+    if(md&&md.dataset.mode!==document.documentElement.dataset.mode&&typeof switchTab==='function')switchTab(md.dataset.mode);
+    const sec=UI.sectionOf&&UI.sectionOf(el);if(sec&&UI.showSection)UI.showSection(sec);
+    if(UI.isPhone&&UI.isPhone()&&UI.setSheet)UI.setSheet('full');
+    if(!el.getClientRects().length)return false;
+    const row=el.closest('.sc-group')||el.closest('.viz-card')||el.closest('#qualityOverlay')||el;
+    row.scrollIntoView({block:'center',behavior:reduce()?'auto':'smooth'});
+    row.classList.remove('f13w-flash');void row.offsetWidth;row.classList.add('f13w-flash');
+    setTimeout(()=>row.classList.remove('f13w-flash'),1400);
+    return true;
+  };
+  const SHOW_ICON='<svg class="ic sm" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.8v2.4M8 11.8v2.4M1.8 8h2.4M11.8 8h2.4"/></svg>';
+  function addShowButtons(){
+    Object.keys(TARGETS).forEach(id=>{
+      const h=document.querySelector('#f13h-card-'+id+' .f13h-card-h');if(!h||h.querySelector('.f13w-show'))return;
+      const b=document.createElement('button');b.type='button';b.className='f13w-show';b.innerHTML=SHOW_ICON+'<span>show</span>';
+      b.setAttribute('aria-label','Show this control');
+      b.addEventListener('click',e=>{e.stopPropagation();const s=document.querySelector('.f13h-scrim.open');if(s)s.click();UI.revealControl(TARGETS[id]);});
+      h.appendChild(b);
+    });
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(addShowButtons,0));else setTimeout(addShowButtons,0);
+})();
+</script>
   <!-- F13LD.queue integration -->
   <script>
   (function(){
@@ -3858,7 +4226,7 @@ document.addEventListener('DOMContentLoaded', function() {
         return o.toDataURL('image/webp',0.72);
       }catch(e){ return null; }
     };
-    var RIGHT='.fh-right', ANCHOR='.fh-mesh-btn', LABEL='⊕ Queue';
+    var RIGHT='.fh-right', ANCHOR='.fh-mesh-btn', LABEL='Queue';
     var TIP='Add to queue — save this recipe to an F13LD.queue list you can open on any device';
     function tipQueue(){
       var m=document.querySelector(RIGHT+' .f13ldq-main'), c=document.querySelector(RIGHT+' .f13ldq-caret');
@@ -3869,16 +4237,32 @@ document.addEventListener('DOMContentLoaded', function() {
       var fb=document.getElementById('f13ldq-fallback'); if(fb) fb.remove();
       F13LDQueue.mountButton({ mount:RIGHT, anchor:ANCHOR, position:'before',
         className:'fh-mesh-btn', text:LABEL,
-        getRecipe:function(){ return buildExportJSON(); }, tool:'f13ld.beam' }); tipQueue();
+        getRecipe:function(){ return activeRecipe(); }, tool:'f13ld.beam' }); tipQueue();
     }
     function mountFallback(){
       if(document.getElementById('f13ldq-fallback')) return;
       var r=document.querySelector(RIGHT), a=document.querySelector(ANCHOR); if(!r) return;
       var b=document.createElement('button'); b.type='button'; b.id='f13ldq-fallback';
       b.className='fh-mesh-btn'; b.textContent=LABEL; b.title=TIP;
-      b.addEventListener('click', function(){ alert('Add to queue is offline — couldn\u2019t reach the queue service. Reload the page to try again.'); });
+      b.addEventListener('click', function(){ showHdrMsg('Add to queue is offline — couldn\u2019t reach the queue service. Reload the page to try again.'); });
       if(a) r.insertBefore(b,a); else r.appendChild(b);
     }
+    // Shared header message (same as F13LD.tpms). o (optional): {action:{label, run}} adds a button after the text;
+    // {note} a dim second line; {ms} the time shown.
+    var msgT=null;
+    function showHdrMsg(t,o){
+      var m=document.getElementById('hdrMsg'); if(!m) return;
+      o=o||{}; m.textContent=t; m.hidden=false; clearTimeout(msgT);
+      if(o.action){
+        var b=document.createElement('button'); b.type='button'; b.className='hdr-msg-act'; b.textContent=o.action.label;
+        b.addEventListener('click', function(e){ e.stopPropagation(); m.hidden=true; o.action.run(); });
+        m.appendChild(document.createTextNode(' · ')); m.appendChild(b);
+      }
+      if(o.note){ var n=document.createElement('div'); n.className='hdr-msg-note'; n.textContent=o.note; m.appendChild(n); }
+      msgT=setTimeout(function(){ m.hidden=true; }, o.ms||(o.action?8000:5000));
+    }
+    window.F13UI=window.F13UI||{}; window.F13UI.message=showHdrMsg;
+    document.addEventListener('click', function(e){ var m=document.getElementById('hdrMsg'); if(m&&!m.hidden&&!e.target.closest('#f13ldq-fallback,#hdrMsg')) m.hidden=true; });
     function load(retry){
       var sc=document.createElement('script');
       sc.src='https://mshomper.github.io/f13ld.queue/f13ld-queue.js';
