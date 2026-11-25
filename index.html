@@ -219,10 +219,6 @@ sub,sup{font-size:11px;line-height:0}
 .vw-br{position:absolute;right:10px;bottom:10px;z-index:14}
 #status{position:absolute;right:12px;bottom:12px;z-index:13;font-size:11px;color:var(--ink-faint);pointer-events:none;max-width:40%;text-align:right;text-shadow:0 1px 2px var(--bg)}
 #status.busy{color:var(--warn)}
-#qualityOverlay{position:absolute;top:10px;right:10px;z-index:14;display:flex;gap:0;height:44px;padding:0 2px;background:oklch(0.13 0.012 265 / 0.82);border:1px solid var(--hair);border-radius:12px;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
-#qualityOverlay button{min-width:44px;height:44px;padding:0 6px;background:transparent;border:0;border-radius:10px;color:var(--ink-dim);font:500 13px var(--lq-font);transition:color .15s var(--ease),background .15s var(--ease)}
-#qualityOverlay button:hover{color:var(--ink)}
-#qualityOverlay button.active{color:var(--accent);background:oklch(1 0 0 / 0.06)}
 #clipHandleHit{position:absolute;width:44px;height:44px;margin:-22px 0 0 -22px;z-index:14;cursor:grab;display:none;touch-action:none}
 
 /* rows */
@@ -253,12 +249,13 @@ sub,sup{font-size:11px;line-height:0}
 .btn.primary{background:var(--accent-soft);border-color:var(--accent-line);color:var(--accent);width:100%}
 .btn.ok{color:var(--accent);border-color:var(--accent-line)}
 .btn-row{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:8px;margin:0 0 14px}
-:is(.mode-btn,.btn,.sb-fallback button,.clip-pill,#qualityOverlay button):focus-visible{outline:2px solid var(--accent-line);outline-offset:2px}
+:is(.mode-btn,.btn,.sb-fallback button,.clip-pill):focus-visible{outline:2px solid var(--accent-line);outline-offset:2px}
 
 /* stiffness readouts. Surface on top at full width; structure and moduli tiles side by side beneath */
 .viz-row3{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;margin-bottom:8px}
 .viz-card{grid-column:1/-1;grid-row:1;background:var(--viz);border-radius:12px;padding:10px;display:flex;flex-direction:column;align-items:stretch;min-width:0}
 .stiff-canvas-wrap{position:relative;width:100%;height:200px;flex:none;display:flex;align-items:center;justify-content:center}
+.analysis-stale .viz-card,.analysis-stale .metric-tile-mini .mv{opacity:.55}   /* stage 4: results update after the drag settles */
 .stiff-canvas{display:block;border-radius:8px;background:var(--viz);width:auto;height:100%;max-width:100%;aspect-ratio:1}
 /* Overlay shown when homogenization fails or the cell is empty. Sits on top of the canvas. */
 .stiff-empty-overlay{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:10px;background:var(--viz);border-radius:8px;overflow:auto}
@@ -369,13 +366,6 @@ sub,sup{font-size:11px;line-height:0}
     </div>
     <div id="clipHandleHit"></div>
     <div id="status">Initializing…</div>
-    <!-- render quality: replaced by automatic quality in stage 4 -->
-    <div id="qualityOverlay">
-      <button id="btnQLow"  onclick="onQualityChange('low')">Low</button>
-      <button id="btnQMed"  class="active" onclick="onQualityChange('medium')">Med</button>
-      <button id="btnQHigh" onclick="onQualityChange('high')">High</button>
-      <button id="btnQUltra" onclick="onQualityChange('ultra')">Ultra</button>
-    </div>
   </div>
   </section>
 
@@ -3888,7 +3878,6 @@ var BEAM_CATALOGS = {"simple_cubic":[[-1,-1,-1,1,-1,-1],[-1,-1,-1,-1,1,-1],[-1,-
 var TOPO_DESC = {"simple_cubic":"Cube edges only. Bending-dominated, low stiffness, highly anisotropic.","bcc":"Corners → center. Stretching-dominated body diagonals.","fcc":"Face diagonals (X-shape on each face). 12 struts, near-isotropic stretch.","diamond":"sp3 tetrahedral bonds: 4 interior nodes each bonded to 1 corner + 3 face centers.","octahedron":"Single octahedron — 6 face centers, 12 edges. Pin-jointed stable.","octet":"Fuller's octet truss: octahedron + corner tetrahedra. Maxwell-stable.","cuboctahedron":"Vertices at cube edge midpoints. 24 edges, 4-fold + 3-fold symmetry.","bcc_z":"BCC + 4 vertical Z-edges. Common in metal PBF orthopedic scaffolds.","fcc_z":"FCC face-X + 4 vertical Z-edges. Reinforced stiffness with Z bias.","bcc_edges":"BCC + all 12 cube edges. Adds bending resistance to body diagonals.","fcc_edges":"FCC face-X + all 12 cube edges. High connectivity at corners.","tesseract":"4D hypercube projection: outer + inner cube + 8 corner connectors.","truncated_cube":"Cube with chamfered corners. 6 octagonal faces + 8 triangle corners.","cartesian_cross":"Three orthogonal axes only. Minimum cubic — useful as reference.","kelvin":"Truncated octahedron (Kelvin cell). 36 edges. Foam-mechanics canonical; minimal surface partition.","rhombic_dodec":"Voronoi cell of FCC packing. 14 vertices, 24 edges. Common in trabecular bone scaffolds.","reentrant":"3D re-entrant auxetic (Evans 1994). Bow-tie verticals. Negative Poisson's ratio in compression.","f2bcc":"FCC face-X + BCC body diagonals (no cube edges). 20 struts; near-isotropic stretch with shear coupling.","f2bcc_z":"F2BCC + 4 vertical Z-edges. 24 struts. Strong reinforcement for axial compression.","tetrahedron":"Single regular tetrahedron inscribed in cube (4 alternating corners). Minimum stable 3D truss.","octet_z":"Octet truss + 4 vertical Z-edges. 40 struts. Maximum-stiffness reinforced topology.","oct_edges":"Octahedron + cube edges. 24 struts. Combines axial-cross with frame-stabilized cube."};
 
 var MAX_BEAMS = 256;  // shader uniform array bound — covers full octahedral symmetry orbits stacked
-var currentQuality = 'medium';
 var currentTile = 1;  // 1, 2, or 3 — uniform tiling factor via SDF modulo
 var raymarcher = null;
 
@@ -3907,8 +3896,7 @@ function getParams() {
     topology: document.getElementById('topology').value,
     radius: parseFloat(document.getElementById('radius').value),
     cell: parseFloat(document.getElementById('cell').value),
-    tile: currentTile,
-    quality: currentQuality
+    tile: currentTile
   };
 }
 
@@ -4512,6 +4500,10 @@ function StiffnessSurface(canvasId) {
   this.Emax = 1;       // for normalization
   this.haveData = false;
   this.initialized = false;
+  this.onScreen = false;   // set by an IntersectionObserver (init)
+  this.dirty = false;
+  this.lost = false;
+  this.last = 0;
 }
 
 StiffnessSurface.prototype.init = function() {
@@ -4520,11 +4512,20 @@ StiffnessSurface.prototype.init = function() {
   // Use min(width,height) so pixel buffer is square — CSS aspect-ratio:1 isn't always
   // respected immediately on a freshly-displayed panel, so we take the safer of the two.
   var dim = Math.max(80, Math.min(cv.offsetWidth || 160, cv.offsetHeight || 160));
-  cv.width = Math.round(dim * (window.devicePixelRatio || 1));
+  cv.width = Math.round(dim * Math.min(window.devicePixelRatio || 1, 2));
   cv.height = cv.width;
   var gl = cv.getContext('webgl2');
   if (!gl) { cv.style.display = 'none'; return false; }
   this.gl = gl;
+  if (!this._wired) {   // once per canvas: context loss / restore, and "is it on screen"
+    this._wired = true;
+    var self = this;
+    cv.addEventListener('webglcontextlost', function(e) { e.preventDefault(); self.lost = true; self.initialized = false; self.prog = null; }, false);
+    cv.addEventListener('webglcontextrestored', function() { self.lost = false; if (self.init()) { self.dirty = true; wakeLoop(); } }, false);
+    if (window.IntersectionObserver) {
+      new IntersectionObserver(function(es) { self.onScreen = es[es.length - 1].isIntersecting; if (self.onScreen) { self.dirty = true; wakeLoop(); } }).observe(cv);
+    } else this.onScreen = true;
+  }
   this.quadBuf = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, this.quadBuf);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
@@ -4661,10 +4662,11 @@ StiffnessSurface.prototype.init = function() {
 
 // Update with new compliance matrix S (36-array, row-major) and Emax for normalization.
 StiffnessSurface.prototype.update = function(S, Emax) {
-  if (!this.initialized && !this.init()) return;
+  if (!this.initialized && !this.lost && !this.init()) return;
   this.S = S;
   this.Emax = Emax;
   this.haveData = true;
+  this.dirty = true; wakeLoop();   // redraw on change
   // Adapt zoom based on anisotropy: highly anisotropic surfaces extend farther
   // along their stiff direction, so we need to zoom out to keep them in frame.
   // Emax is the long axis radius (= 1 in normalized coords), so a base zoom of 2.8 fits
@@ -4672,17 +4674,19 @@ StiffnessSurface.prototype.update = function(S, Emax) {
   this.zoom = 3.6;
 };
 
-StiffnessSurface.prototype.tick = function(dt) {
-  if (!this.initialized || !this.haveData) return;
-  // Slow auto-rotate; ~14°/sec — slow enough to study the shape, fast enough to see all sides.
-  this.rotMat = _ssMat3Mul(_ssRotAA(0, 1, 0, dt * 0.25), this.rotMat);
-  this.rotMat = _ssOrtho(this.rotMat);
+// Draw once, turned by dAngle first (0 = redraw as is). The loop (_ssFrame) calls this on change and, at
+// most 30 times a second, while the surface is on screen and the main view is idle.
+StiffnessSurface.prototype.draw = function(dAngle) {
+  if (!this.initialized || !this.haveData || this.lost) return;
+  // Slow auto-rotate (see _ssFrame): ~14°/sec — slow enough to study the shape, fast enough to see all sides.
+  if (dAngle) { this.rotMat = _ssMat3Mul(_ssRotAA(0, 1, 0, dAngle), this.rotMat); this.rotMat = _ssOrtho(this.rotMat); }
+  drawStats.glyph++;
   var gl = this.gl;
   var cv = document.getElementById(this.canvasId);
   if (!cv) return;
   // Re-sync canvas size in case panel resized; use min(w,h) for square pixel buffer
   var dim = Math.max(80, Math.min(cv.offsetWidth || 160, cv.offsetHeight || 160));
-  var dpr = window.devicePixelRatio || 1;
+  var dpr = Math.min(window.devicePixelRatio || 1, DPR_MAX);
   var pxW = Math.round(dim * dpr);
   if (cv.width !== pxW) { cv.width = pxW; cv.height = pxW; }
   gl.viewport(0, 0, cv.width, cv.height);
@@ -4716,9 +4720,29 @@ StiffnessSurface.prototype.clear = function() {
 var libStiffSurf = null;
 var bldStiffSurf = null;
 
-function _ssTickAll(dt) {
-  if (libStiffSurf) libStiffSurf.tick(dt);
-  if (bldStiffSurf) bldStiffSurf.tick(dt);
+var SS_SPIN = 0.25;   // rad/s, as before (was dt * 0.25 per frame)
+function _ssList() { var a = []; if (libStiffSurf) a.push(libStiffSurf); if (bldStiffSurf) a.push(bldStiffSurf); return a; }
+function _ssSpins() { return !REDUCE_MOTION.matches; }
+function _ssNeedsLoop() {
+  var a = _ssList();
+  for (var i = 0; i < a.length; i++) {
+    var s = a[i];
+    if (s.initialized && s.haveData && s.onScreen && (s.dirty || _ssSpins())) return true;
+  }
+  return false;
+}
+// Redraw on change; idle spin <= 30 fps, only while on screen, the main view is idle and Reduce Motion is off.
+function _ssFrame(ts, moving) {
+  var a = _ssList(), spin = !moving && _ssSpins();
+  for (var i = 0; i < a.length; i++) {
+    var s = a[i];
+    if (!s.initialized || !s.haveData || !s.onScreen) { s.last = 0; continue; }
+    if (s.dirty) { s.draw(0); s.dirty = false; s.last = spin ? ts : 0; }
+    else if (spin) {
+      if (!s.last) s.last = ts;
+      else if (ts - s.last >= 33) { s.draw(Math.min((ts - s.last) / 1000, 0.1) * SS_SPIN); s.last = ts; }
+    } else s.last = 0;
+  }
 }
 
 // Compute the directional Young's modulus E(n) = 1 / (m^T S m) where
@@ -4807,12 +4831,35 @@ function setStiffEmpty(prefix, mode, reason, isBuilder) {
   box.classList.add('show');
 }
 
-function updateMetrics() {
+// The homogenization (DSM-PBC solve, 1-100 ms) stays off the per-tick path: a drag or a Builder edit
+// updates the cheap readouts (beams, density, length) at once and runs the solve ~120 ms after the last
+// change or on release, whichever comes first. Exports recompute everything fresh.
+var _mPend = null, _mTimer = 0, METRICS_IDLE_MS = 120;
+function updateMetricsDeferred(which) {
+  _mPend = which;
+  if (which === 'bld') Builder.updateMetrics(true); else updateMetrics(true);
+  document.documentElement.classList.add('analysis-stale');
+  clearTimeout(_mTimer);
+  _mTimer = setTimeout(flushMetrics, METRICS_IDLE_MS);
+}
+function flushMetrics() {
+  clearTimeout(_mTimer);
+  var w = _mPend; _mPend = null;
+  document.documentElement.classList.remove('analysis-stale');
+  if (!w) return;
+  if (w === 'bld') Builder.updateMetrics(); else updateMetrics();
+}
+document.addEventListener('change', function() { if (_mPend) flushMetrics(); }, true);
+document.addEventListener('pointerup', function() { if (_mPend) setTimeout(flushMetrics, 0); }, true);
+
+function updateMetrics(cheapOnly) {
+  if (!cheapOnly && _mPend === 'lib') { _mPend = null; clearTimeout(_mTimer); document.documentElement.classList.remove('analysis-stale'); }
   var p = getParams();
   var m = computeMetrics(p);
   document.getElementById('mBeams').textContent = m.beamCount;
   document.getElementById('mDensity').textContent = m.densityPct.toFixed(1);
   document.getElementById('mLength').textContent = m.sumLength.toFixed(1);
+  if (cheapOnly) return;
   // Phase 1 homogenization metrics
   var beams = BEAM_CATALOGS[p.topology] || [];
   var h = computeHomogenization(beams);
@@ -4906,7 +4953,9 @@ function Raymarcher(canvas) {
   var vp = document.getElementById('cw');
   canvas.width = Math.max(vp ? vp.clientWidth : 600, 1);
   canvas.height = Math.max(vp ? vp.clientHeight : 400, 1);
-  this.gl = canvas.getContext('webgl2',{preserveDrawingBuffer:true}) || canvas.getContext('webgl',{preserveDrawingBuffer:true});
+  // antialias:false: it does nothing for a ray-marched quad and blitting into an MSAA canvas errors.
+  // preserveDrawingBuffer stays: F13LD_snapshot reads the canvas, and a still frame is not redrawn.
+  this.gl = canvas.getContext('webgl2',{antialias:false,preserveDrawingBuffer:true}) || canvas.getContext('webgl',{antialias:false,preserveDrawingBuffer:true});
   if (!this.gl) {
     document.getElementById('status').textContent = 'WebGL not supported';
     return;
@@ -4924,8 +4973,14 @@ function Raymarcher(canvas) {
   this.autoRot = true;
   this.running = false;
   this._loopRunning = false;
-  this._dirty = true;
   this.currentParams = null;
+  this._ovDirty = true;
+  this.drawingInt = false;
+  this.lowFB = { fb: null, rb: null, w: 0, h: 0 };   // interactive target (allocated at AQ.max of the canvas)
+  this.hiFB = { fb: null, rb: null, w: 0, h: 0 };    // rest target (full canvas size), filled in strips
+  this._beamsUp = false;
+  this.lost = false;
+  this._dirty = true;
   this.beamA = new Float32Array(MAX_BEAMS * 3);
   this.beamB = new Float32Array(MAX_BEAMS * 3);
   this.beamCount = 0;
@@ -4934,7 +4989,33 @@ function Raymarcher(canvas) {
   gl.bindBuffer(gl.ARRAY_BUFFER, this.quadBuf);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
   this._setupInteraction();
+  var self = this;
+  canvas.addEventListener('webglcontextlost', function(e) { e.preventDefault(); self._onLost(); }, false);
+  canvas.addEventListener('webglcontextrestored', function() { self._onRestored(); }, false);
+  if (window.ResizeObserver) new ResizeObserver(function() { renderDirty = true; wakeLoop(); }).observe(canvas);
 }
+
+// Context loss: every GL object is gone. Restore rebuilds buffer, program and both render targets,
+// re-uploads the beams and draws again (interactive frame, then the rest frame).
+Raymarcher.prototype._onLost = function() {
+  this.lost = true;
+  this.prog = null; this._pendingProg = null; this._compiling = false;
+  this.lowFB.fb = this.lowFB.rb = null; this.hiFB.fb = this.hiFB.rb = null;
+  this.lowFB.w = this.hiFB.w = 0;
+  REST.active = false;
+  setShaderStatus(false);
+  document.getElementById('status').textContent = 'Graphics context lost, restoring…';
+};
+Raymarcher.prototype._onRestored = function() {
+  var gl = this.gl;
+  this.lost = false; this._beamsUp = false;
+  this._khr = gl.getExtension('KHR_parallel_shader_compile') || null;
+  this.quadBuf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, this.quadBuf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+  this._submitShader();
+  this._dirty = true;
+};
 
 Raymarcher.prototype._mkShader = function(type, src) {
   var gl = this.gl;
@@ -4950,11 +5031,11 @@ Raymarcher.prototype._mkShader = function(type, src) {
   return s;
 };
 
-Raymarcher.prototype._buildShader = function(params) {
-  var steps = params.quality === 'ultra' ? '512'
-            : params.quality === 'high'  ? '256'
-            : params.quality === 'medium'? '160'
-            : '96';
+// Quality is two uniforms (uSteps, uThresh): the loop bound stays a compile-time constant and the
+// real count breaks out of it, so the shader never recompiles for quality and the loop stays unrollable.
+var MARCH_MAX = 512;
+Raymarcher.prototype._buildShader = function() {
+  var steps = String(MARCH_MAX);
   // WebGL 2 fragment shader (GLSL ES 3.00).
   return [
     '#version 300 es',
@@ -4969,6 +5050,7 @@ Raymarcher.prototype._buildShader = function(params) {
     'uniform float uRadius;',
     'uniform float uTile;',
     'uniform float uClipAxis; uniform float uClipPos; uniform float uClipSide;',
+    'uniform int uSteps; uniform float uThresh;',
     'const float H = 1.0;',  // single-cell half-extent in shader units (cube spans [-H,+H])
     'const float CELL = 2.0 * H;',
     // Capsule SDF
@@ -5070,10 +5152,10 @@ Raymarcher.prototype._buildShader = function(params) {
     '  bool hit = false;',
     '  bool isClipCap = false;',
     '  for (int i = 0; i < ' + steps + '; i++) {',
-    '    if (t > tEx) break;',
+    '    if (i >= uSteps || t > tEx) break;',
     '    vec3 p = ro + rd * t;',
     '    float d = sceneSDF(p);',
-    '    if (d < 0.0008) { hit = true; break; }',
+    '    if (d < 0.0008 * uThresh) { hit = true; break; }',
     // When tiling, the modulo-wrapped SDF overestimates true distance — the nearest beam
     // could be in a neighbor cell at distance < d. Cap the step size to keep the trace safe.
     '    float maxStep = uTile > 1.5 ? 0.6 : 100.0;',
@@ -5093,10 +5175,12 @@ Raymarcher.prototype._buildShader = function(params) {
   ].join('\n');
 };
 
-Raymarcher.prototype._submitShader = function(params) {
+Raymarcher.prototype._submitShader = function() {
   var gl = this.gl;
+  if (!gl || gl.isContextLost()) return;
+  drawStats.compile++;
   var vs = '#version 300 es\nin vec2 p; void main(){ gl_Position = vec4(p, 0.0, 1.0); }';
-  var fs = this._buildShader(params);
+  var fs = this._buildShader();
   var vs_ = this._mkShader(gl.VERTEX_SHADER, vs);
   var fs_ = this._mkShader(gl.FRAGMENT_SHADER, fs);
   if (!vs_ || !fs_) return;
@@ -5132,6 +5216,9 @@ Raymarcher.prototype._activateProgram = function(prg) {
   this.uClipAxis  = gl.getUniformLocation(prg, 'uClipAxis');
   this.uClipPos   = gl.getUniformLocation(prg, 'uClipPos');
   this.uClipSide  = gl.getUniformLocation(prg, 'uClipSide');
+  this.uSteps     = gl.getUniformLocation(prg, 'uSteps');
+  this.uThresh    = gl.getUniformLocation(prg, 'uThresh');
+  this._beamsUp = false;
 };
 
 Raymarcher.prototype._uploadCatalog = function(topology) {
@@ -5156,40 +5243,39 @@ Raymarcher.prototype._uploadBeams = function(beams) {
     this.beamB[i*3+0] = this.beamB[i*3+1] = this.beamB[i*3+2] = 0;
   }
   this.beamCount = n;
+  this._beamsUp = false;
   this._dirty = true;
 };
 
 Raymarcher.prototype.setParams = function(params) {
   if (!this.gl) return;
   var prev = this.currentParams;
-  var needRebuild = !prev || (!this.prog && !this._compiling) || params.quality !== prev.quality;
+  var needRebuild = !prev || (!this.prog && !this._compiling);
   // Topology change: just re-upload uniforms, no recompile
   if (!prev || params.topology !== prev.topology) {
     this._uploadCatalog(params.topology);
   }
   this.currentParams = params;
   if (needRebuild) {
-    if (this.running) this._submitShader(params);
+    if (this.running) this._submitShader();
     else this._rebuildPending = true;
   }
   this._dirty = true;
-  if (!this._loopRunning) this._startLoop();
 };
 
-// Builder-mode alternative: pass raw beam list (no catalog lookup). Re-uploads and
-// triggers shader rebuild only if quality changed (not on every beam edit).
+// Builder-mode alternative: pass raw beam list (no catalog lookup). Re-uploads the beams; the
+// shader is built once (init), never for an edit.
 Raymarcher.prototype.setBuilderParams = function(beams, params) {
   if (!this.gl) return;
   this._uploadBeams(beams);
   var prev = this.currentParams;
-  var needRebuild = !prev || (!this.prog && !this._compiling) || params.quality !== prev.quality;
+  var needRebuild = !prev || (!this.prog && !this._compiling);
   this.currentParams = params;
   if (needRebuild) {
-    if (this.running) this._submitShader(params);
+    if (this.running) this._submitShader();
     else this._rebuildPending = true;
   }
   this._dirty = true;
-  if (!this._loopRunning) this._startLoop();
 };
 
 Raymarcher.prototype._rotAA = function(ax, ay, az, angle) {
@@ -5369,41 +5455,69 @@ Raymarcher.prototype._setupInteraction = function() {
   }, { passive: false });
 };
 
-Raymarcher.prototype.render = function() {
-  var gl = this.gl;
-  if (!gl) return;
-  if (this._compiling && this._pendingProg) {
-    var ready = true;
-    if (this._khr) ready = gl.getProgramParameter(this._pendingProg, this._khr.COMPLETION_STATUS_KHR);
-    if (ready) {
-      if (gl.getProgramParameter(this._pendingProg, gl.LINK_STATUS)) {
-        this._activateProgram(this._pendingProg);
-        setShaderStatus(false);
-        document.getElementById('status').textContent = 'Ready';
-      } else {
-        console.error('Shader link failed:', gl.getProgramInfoLog(this._pendingProg));
-        gl.deleteProgram(this._pendingProg);
-        setShaderStatus(false);
-        document.getElementById('status').textContent = 'Shader error';
-      }
-      this._pendingProg = null;
-      this._compiling = false;
-      this._dirty = true;
-    }
-  }
-  if (!this.prog) return;
-  var cssW = this.canvas.clientWidth, cssH = this.canvas.clientHeight;
-  if (cssW === 0 || cssH === 0) return;
-  var dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+// ─── Render engine (render-quality pattern: F13LD.tpms v1.4.0) ─────────────
+// Quality is automatic. Steps and threshold are uniforms, so nothing here ever recompiles.
+//  * Interactive frames (orbit, zoom, clip drag, any control input, auto-rotate): Q_INT, drawn into an
+//    offscreen framebuffer at an adaptive scale (AQ.scale 0.4-0.85) and upscaled with a LINEAR blit.
+//  * ~150 ms after the last interaction one rest frame (Q_REST, full canvas resolution) is rendered in
+//    horizontal strips over several display frames into a second offscreen buffer, then blitted once.
+//  * The canvas buffer is css size x min(devicePixelRatio, 2) and only resizes when the pane resizes.
+//  * The loop is on demand: it sleeps unless something changed (kick / _dirty), the armed-point pulse runs
+//    (overlay only, 30 fps), or a stiffness surface spins (30 fps, only on screen and while the view is idle).
+var Q_INT = { steps: 160, thresh: 1.0 }, Q_REST = { steps: 384, thresh: 1.0 };
+var IDLE_MS = 150, DPR_MAX = 2;
+var AQ = { scale: 0.7, min: 0.4, max: 0.85, cap: 0.85, ema: 0, prev: 0, vsync: 16.7, lastTick: 0, pxCost: 0 };
+var REST = { active: false, y: 0, rows: 0, last: 0, strips: 0, STRIP_MS: 8, REST_COST: 2 };
+var renderDirty = true, refinePending = false, lastInteract = 0, lastTs = 0, loopOn = false, ovLast = 0;
+var drawStats = { int: 0, rest: 0, restStrips: 0, glyph: 0, overlay: 0, compile: 0 };   // counters for tests / profiling
+function wakeLoop() { if (!loopOn) { loopOn = true; requestAnimationFrame(frame); } }
+function kick() { lastInteract = performance.now(); renderDirty = true; wakeLoop(); }
+// "_dirty = true" (set all over the app and by the view kit) means "something changed": an interaction.
+Object.defineProperty(Raymarcher.prototype, '_dirty', {
+  get: function() { return renderDirty; },
+  set: function(v) { if (v) kick(); else renderDirty = false; }
+});
+// Overlay-only change (hover, armed point, snap density, mode): redraw the 2D overlay, not the ray-march.
+Raymarcher.prototype.overlay = function() { this._ovDirty = true; wakeLoop(); };
+document.addEventListener('input', function() { if (raymarcher && raymarcher.gl) kick(); }, true);
+document.addEventListener('change', function() { if (raymarcher && raymarcher.gl) kick(); }, true);
+window.addEventListener('resize', function() { renderDirty = true; wakeLoop(); });
+
+// Fixed-size drawing buffer from the pane (css size x capped DPR); true when it changed.
+Raymarcher.prototype._size = function() {
+  var cv = this.canvas, cssW = cv.clientWidth, cssH = cv.clientHeight;
+  if (!cssW || !cssH) return false;
+  var dpr = Math.min(window.devicePixelRatio || 1, DPR_MAX);
   var w = Math.round(cssW * dpr), h = Math.round(cssH * dpr);
-  if (this.canvas.width !== w || this.canvas.height !== h) {
-    this.canvas.width = w; this.canvas.height = h;
-  }
-  gl.viewport(0, 0, w, h);
+  if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; return true; }
+  return false;
+};
+Raymarcher.prototype._ensureFB = function(t, w, h) {
+  var gl = this.gl;
+  if (t.fb && t.w === w && t.h === h) return true;
+  if (!t.fb) { t.fb = gl.createFramebuffer(); t.rb = gl.createRenderbuffer(); }
+  gl.bindRenderbuffer(gl.RENDERBUFFER, t.rb);
+  gl.renderbufferStorage(gl.RENDERBUFFER, gl.RGBA8, w, h);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, t.fb);
+  gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.RENDERBUFFER, t.rb);
+  var ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  t.w = w; t.h = h;
+  if (!ok) { gl.deleteFramebuffer(t.fb); gl.deleteRenderbuffer(t.rb); t.fb = null; t.w = 0; }
+  return ok;
+};
+// One draw of the ray-march into fb (null = canvas) of size W x H, optionally only rows [y0, y1).
+Raymarcher.prototype._draw = function(fb, W, H, q, strip) {
+  var gl = this.gl;
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+  gl.viewport(0, 0, W, H);
+  if (strip) { gl.enable(gl.SCISSOR_TEST); gl.scissor(0, strip[0], W, strip[1] - strip[0]); }
   gl.useProgram(this.prog);
-  gl.uniform2f(this.uRes, w, h);
+  gl.uniform2f(this.uRes, W, H);
   gl.uniformMatrix3fv(this.uRot, false, new Float32Array(this.rotMat));
   gl.uniform1f(this.uZoom, this.camZoom);
+  gl.uniform1i(this.uSteps, q.steps);
+  gl.uniform1f(this.uThresh, q.thresh);
   if (this.uClipAxis) gl.uniform1f(this.uClipAxis, clipState.axis);
   if (this.uClipPos) gl.uniform1f(this.uClipPos, clipState.pos);
   if (this.uClipSide) gl.uniform1f(this.uClipSide, clipState.side);
@@ -5411,40 +5525,141 @@ Raymarcher.prototype.render = function() {
     gl.uniform1f(this.uRadius, this.currentParams.radius);
     gl.uniform1f(this.uTile, this.currentParams.tile || 1);
   }
-  gl.uniform3fv(this.uBeamA, this.beamA);
-  gl.uniform3fv(this.uBeamB, this.beamB);
-  gl.uniform1i(this.uBeamCount, this.beamCount);
+  if (!this._beamsUp) {   // 2 x 256 vec3: only when the beams changed
+    gl.uniform3fv(this.uBeamA, this.beamA);
+    gl.uniform3fv(this.uBeamB, this.beamB);
+    gl.uniform1i(this.uBeamCount, this.beamCount);
+    this._beamsUp = true;
+  }
   if (f13View) f13View.apply(gl, this.prog);
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  if (strip) gl.disable(gl.SCISSOR_TEST);
+};
+// Interactive frame: low-res offscreen draw, LINEAR upscale to the canvas.
+Raymarcher.prototype._drawInt = function() {
+  var gl = this.gl, W = this.canvas.width, H = this.canvas.height;
+  var w = Math.max(1, Math.ceil(W * AQ.max)), h = Math.max(1, Math.ceil(H * AQ.max));
+  if (!this._ensureFB(this.lowFB, w, h)) {   // no offscreen target: draw straight to the canvas at Q_INT
+    this.drawingInt = true; this._draw(null, W, H, Q_INT); this.drawingInt = false; return;
+  }
+  var sw = Math.max(1, Math.round(W * AQ.scale)), sh = Math.max(1, Math.round(H * AQ.scale));
+  this.drawingInt = true;
+  this._draw(this.lowFB.fb, sw, sh, Q_INT);
+  this.drawingInt = false;
+  gl.bindFramebuffer(gl.READ_FRAMEBUFFER, this.lowFB.fb);
+  gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+  gl.blitFramebuffer(0, 0, sw, sh, 0, 0, W, H, gl.COLOR_BUFFER_BIT, gl.LINEAR);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  drawStats.int++;
+};
+// One-pass full-resolution rest frame straight to the canvas (fallback, and the reference for the strips test).
+Raymarcher.prototype._drawRestDirect = function() {
+  this._draw(null, this.canvas.width, this.canvas.height, Q_REST);
+  drawStats.rest++;
+};
+Raymarcher.prototype._restBegin = function() {
+  if (!this.prog || !this._ensureFB(this.hiFB, this.canvas.width, this.canvas.height)) return false;
+  var W = this.canvas.width, H = this.canvas.height, lo = Math.ceil(H / 16), hi = Math.ceil(H / 4);
+  REST.rows = AQ.pxCost > 0 ? Math.round(REST.STRIP_MS / (AQ.pxCost * REST.REST_COST * W)) : Math.ceil(H / 6);
+  REST.rows = Math.max(lo, Math.min(hi, REST.rows));
+  REST.active = true; REST.y = 0; REST.last = 0; REST.strips = 0;
+  return true;
+};
+// One strip; true when the frame is complete and on the canvas.
+Raymarcher.prototype._restStep = function(ts) {
+  var gl = this.gl, W = this.canvas.width, H = this.canvas.height;
+  if (W !== this.hiFB.w || H !== this.hiFB.h) { REST.active = false; renderDirty = true; return false; }
+  if (REST.last) {   // adapt the strip height to the measured strip interval
+    var d = ts - REST.last, lo = Math.ceil(H / 16), hi = Math.ceil(H / 4);
+    if (d > Math.max(24, AQ.vsync * 1.5)) REST.rows = Math.max(lo, Math.floor(REST.rows * 0.6));
+    else if (d < Math.max(14, AQ.vsync * 1.05)) REST.rows = Math.min(hi, Math.ceil(REST.rows * 1.3));
+  }
+  REST.last = ts;
+  this.rotMat = this._orthonorm(this.rotMat);
+  var y1 = Math.min(H, REST.y + REST.rows);
+  this._draw(this.hiFB.fb, W, H, Q_REST, [REST.y, y1]); REST.y = y1; REST.strips++;
+  if (REST.y < H) return false;
+  gl.bindFramebuffer(gl.READ_FRAMEBUFFER, this.hiFB.fb);
+  gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+  gl.blitFramebuffer(0, 0, W, H, 0, 0, W, H, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  REST.active = false; drawStats.rest++; drawStats.restStrips = REST.strips;
+  return true;
+};
+function restDrawAll(rm) { if (!rm._restBegin()) return; var t = 0; while (REST.active) rm._restStep(t += 16); }   // timing / test harness only
+// Adaptive scale: frame-to-frame time of consecutive interactive frames (EMA). Slower than ~20 ms
+// (or 1.6 display frames) lowers the scale; at the display rate it creeps back up.
+function aqSample(ts) {
+  if (AQ.prev && ts - AQ.prev < 1000) {   // consecutive interactive frames only (AQ.prev resets on any other frame)
+    var d = ts - AQ.prev; AQ.ema = AQ.ema ? AQ.ema * 0.7 + d * 0.3 : d;
+    AQ.pxCost = AQ.ema / Math.max(1, raymarcher.canvas.width * raymarcher.canvas.height * AQ.scale * AQ.scale);
+    var fast = Math.max(12, AQ.vsync * 1.2), slow = Math.max(20, AQ.vsync * 1.6);
+    if (AQ.ema > slow) { AQ.cap = Math.max(AQ.min, AQ.scale - 0.03); AQ.scale = Math.max(AQ.min, AQ.scale * 0.88); AQ.ema = 0; }
+    else if (AQ.ema < fast && AQ.scale < AQ.cap) AQ.scale = Math.min(AQ.cap, AQ.scale + 0.01);
+  }
+  AQ.prev = ts;
+}
+// Compile completion (async with KHR_parallel_shader_compile): activate the program when it is ready.
+Raymarcher.prototype._pollCompile = function() {
+  var gl = this.gl;
+  if (!(this._compiling && this._pendingProg)) return;
+  var ready = true;
+  if (this._khr) ready = gl.getProgramParameter(this._pendingProg, this._khr.COMPLETION_STATUS_KHR);
+  if (!ready) return;
+  if (gl.getProgramParameter(this._pendingProg, gl.LINK_STATUS)) {
+    this._activateProgram(this._pendingProg);
+    setShaderStatus(false);
+    document.getElementById('status').textContent = 'Ready';
+  } else {
+    console.error('Shader link failed:', gl.getProgramInfoLog(this._pendingProg));
+    gl.deleteProgram(this._pendingProg);
+    setShaderStatus(false);
+    document.getElementById('status').textContent = 'Shader error';
+  }
+  this._pendingProg = null;
+  this._compiling = false;
+  renderDirty = true;
+};
+// The 2D overlay (axis gizmo, Builder snap points / ghost, clip handle): cheap, no GL.
+Raymarcher.prototype._drawOverlay = function() {
   drawAxisGizmo(this.rotMat, this.canvas.clientWidth, this.canvas.clientHeight, this.camZoom);
   drawClipHandle(this.rotMat, this.canvas.clientWidth, this.canvas.clientHeight, this.camZoom, (this.currentParams && this.currentParams.tile) || 1);
-  this._dirty = false;
+  this._ovDirty = false; drawStats.overlay++;
 };
-
-Raymarcher.prototype._startLoop = function() {
-  var self = this;
-  self._loopRunning = true;
-  var lastTs = 0;
-  function loop(ts) {
-    var dt = Math.min((ts - lastTs) / 1000, 0.05);
-    lastTs = ts;
-    if (self.autoRot) {
-      self._applyDelta(dt * 50, 0);
-      self._dirty = true;
+var REDUCE_MOTION = window.matchMedia ? window.matchMedia('(prefers-reduced-motion:reduce)') : { matches: false };
+function frame(ts) {
+  loopOn = false;
+  var rm = raymarcher;
+  if (!rm || !rm.gl || rm.lost || rm.gl.isContextLost()) { _ssFrame(ts, true); return; }   // restored → _onRestored wakes the loop
+  if (AQ.lastTick) { var dv = ts - AQ.lastTick; if (dv > 4 && dv < AQ.vsync) AQ.vsync = dv; } AQ.lastTick = ts;
+  var dt = lastTs ? Math.min((ts - lastTs) / 1000, 0.05) : 1 / 60; lastTs = ts;
+  if (rm.autoRot) { rm._applyDelta(dt * 50, 0); }
+  rm._pollCompile();
+  var now = performance.now();
+  var moving = rm.autoRot || (now - lastInteract < IDLE_MS) || !!(f13View && f13View.interacting);
+  var drewInt = false, drewAny = false;
+  var visible = !!(rm.canvas.clientWidth && rm.canvas.clientHeight);   // zero-size pane: nothing to draw until it resizes
+  if (rm.prog && visible) {
+    if (rm._size()) renderDirty = true;
+    if (renderDirty) {   // any change: a quick frame now, the rest frame when idle
+      renderDirty = false; REST.active = false;
+      rm._rotFix(); rm._drawInt(); drewInt = true; drewAny = true; refinePending = true;
+    } else if (refinePending && moving) {
+      REST.active = false;   // interaction resumed: drop the strips
+    } else if (refinePending) {
+      if (!REST.active && !rm._restBegin()) { rm._drawRestDirect(); refinePending = false; drewAny = true; }
+      else if (rm._restStep(ts)) { refinePending = false; drewAny = true; AQ.cap = Math.min(AQ.max, AQ.cap + 0.05); }
     }
-    // Builder armed-endpoint pulse needs continuous redraws — render() resets
-    // _dirty at the end of each frame, so we must re-arm it here every frame.
-    if (Builder.active && Builder.armed) self._dirty = true;
-    if (self._dirty || self._compiling) {
-      self.rotMat = self._orthonorm(self.rotMat);
-      self.render();
-    }
-    // Stiffness surface widgets tick independently — they auto-rotate continuously.
-    _ssTickAll(dt);
-    requestAnimationFrame(loop);
   }
-  requestAnimationFrame(loop);
-};
+  if (drewInt) aqSample(ts); else AQ.prev = 0;
+  // overlay: with every main frame that reached the canvas, on request, and the armed pulse at <= 30 fps
+  var pulse = !!(typeof Builder !== 'undefined' && Builder.active && Builder.armed) && !REDUCE_MOTION.matches;
+  if (visible && (drewAny || rm._ovDirty || (pulse && ts - ovLast >= 33))) { rm._drawOverlay(); ovLast = ts; }
+  _ssFrame(ts, moving);
+  // (kick() inside this frame may already have scheduled the next one: never schedule twice)
+  if (!loopOn && (rm._compiling || _ssNeedsLoop() || (visible && (rm.autoRot || renderDirty || refinePending || moving || pulse)))) { loopOn = true; requestAnimationFrame(frame); }
+}
+Raymarcher.prototype._rotFix = function() { this.rotMat = this._orthonorm(this.rotMat); };
 
 // ─── Overlay drawing (axis gizmo + builder overlays when active) ──────────
 // Returns the projection function and ctx so callers (Builder picker) can use them.
@@ -5459,9 +5674,10 @@ function drawAxisGizmo(rotMat, canvasW, canvasH, camZoom) {
   var cv = document.getElementById('axisCanvas');
   if (!cv) return;
   var dpr = Math.min(window.devicePixelRatio || 1, 2);
-  cv.width = Math.round(canvasW * dpr);
-  cv.height = Math.round(canvasH * dpr);
+  var ow = Math.round(canvasW * dpr), oh = Math.round(canvasH * dpr);
+  if (cv.width !== ow || cv.height !== oh) { cv.width = ow; cv.height = oh; }   // resizing reallocates and clears: only when the pane changed
   var ctx = cv.getContext('2d');
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.scale(dpr, dpr);
   ctx.clearRect(0, 0, canvasW, canvasH);
   var H = 1.0;
@@ -5625,7 +5841,7 @@ function onParamChange(input, valueId) {
     else el.textContent = v.toFixed(3);
   }
   if (raymarcher) raymarcher.setParams(getParams());
-  updateMetrics();
+  updateMetricsDeferred('lib');
 }
 
 function onTopologyChange() {
@@ -5647,23 +5863,6 @@ function onTileChange(t) {
     raymarcher.setParams(getParams());
   }
   updateMetrics();
-}
-
-function onQualityChange(q) {
-  currentQuality = q;
-  ['Low','Med','High','Ultra'].forEach(function(suffix, i) {
-    var lvl = ['low','medium','high','ultra'][i];
-    var btn = document.getElementById('btnQ' + suffix);
-    if (btn) btn.classList.toggle('active', lvl === q);
-  });
-  if (!raymarcher) return;
-  // When Builder is active, route through its refresh path so the custom beams
-  // are not overwritten by the Library tab's catalog cell.
-  if (typeof Builder !== 'undefined' && Builder.active) {
-    Builder.refresh();
-  } else {
-    raymarcher.setParams(getParams());
-  }
 }
 
 // Build a JSON-friendly block of the current homogenization result for a beam set.
@@ -6154,14 +6353,14 @@ var Builder = {
     this.redoStack.push(JSON.stringify(this.beams));
     this.beams = JSON.parse(this.history.pop());
     this.armed = null;
-    this.refresh();
+    this.refresh(true);
   },
   redo: function() {
     if (this.redoStack.length === 0) return;
     this.history.push(JSON.stringify(this.beams));
     this.beams = JSON.parse(this.redoStack.pop());
     this.armed = null;
-    this.refresh();
+    this.refresh(true);
   },
   clear: function() {
     if (this.beams.length === 0) return;
@@ -6339,7 +6538,7 @@ var Builder = {
       this.hoverBeamIdx = null;
       changed = true;
     }
-    if (raymarcher) raymarcher._dirty = true;
+    if (changed && raymarcher) raymarcher.overlay();
   },
 
   handleClick: function(screenX, screenY) {
@@ -6349,7 +6548,7 @@ var Builder = {
         // Missed click — disarm
         this.armed = null;
         this.updateStatus('Click a snap point to begin a beam.');
-        if (raymarcher) raymarcher._dirty = true;
+        if (raymarcher) raymarcher.overlay();
         return;
       }
       if (!this.armed) {
@@ -6372,10 +6571,10 @@ var Builder = {
           } else {
             this.updateStatus('Added ' + added + ' beam' + (added !== 1 ? 's' : '') + '. Click a snap point to begin another.');
           }
-          this.refresh();
+          this.refresh(true);
         }
       }
-      if (raymarcher) raymarcher._dirty = true;
+      if (raymarcher) raymarcher.overlay();
     } else if (this.mode === 'remove') {
       var idx = this.pickBeam(screenX, screenY);
       if (idx >= 0) {
@@ -6388,7 +6587,7 @@ var Builder = {
           if (this.removeBeamAt(orbit[k])) n++;
         }
         this.updateStatus('Removed ' + n + ' beam' + (n !== 1 ? 's' : '') + '.');
-        this.refresh();
+        this.refresh(true);
       } else {
         this.updateStatus('Click on a beam to remove it.');
       }
@@ -6399,22 +6598,21 @@ var Builder = {
     if (this.armed) {
       this.armed = null;
       this.updateStatus('Cancelled. Click a snap point to begin a beam.');
-      if (raymarcher) raymarcher._dirty = true;
+      if (raymarcher) raymarcher.overlay();
     }
   },
 
   // ─── Refresh: push state to raymarcher and update UI ────────────────
-  refresh: function() {
+  refresh: function(defer) {
     if (raymarcher) {
       raymarcher.setBuilderParams(this.beams, {
         topology: '__builder__',
         radius: this.radius,
         cell: 1.5,
-        tile: this.tile,
-        quality: currentQuality
+        tile: this.tile
       });
     }
-    this.updateMetrics();
+    if (defer) updateMetricsDeferred('bld'); else this.updateMetrics();
   },
 
   updateStatus: function(msg) {
@@ -6422,7 +6620,8 @@ var Builder = {
     if (el) el.textContent = msg;
   },
 
-  updateMetrics: function() {
+  updateMetrics: function(cheapOnly) {
+    if (!cheapOnly && _mPend === 'bld') { _mPend = null; clearTimeout(_mTimer); document.documentElement.classList.remove('analysis-stale'); }
     var sumLen = 0;
     for (var i = 0; i < this.beams.length; i++) {
       var b = this.beams[i];
@@ -6434,6 +6633,7 @@ var Builder = {
     document.getElementById('bldMBeams').textContent = this.beams.length;
     document.getElementById('bldMDensity').textContent = density.toFixed(1);
     document.getElementById('bldMLength').textContent = sumLen.toFixed(1);
+    if (cheapOnly) return;
     // Homogenization
     var h = computeHomogenization(this.beams);
     document.getElementById('bldMNodes').textContent = h.nRaw;
@@ -6506,11 +6706,11 @@ function bldSetSnap(d) {
     var btn = document.getElementById('btnSnap' + s);
     if (btn) btn.classList.toggle('active', s.toLowerCase() === d);
   });
-  if (raymarcher) raymarcher._dirty = true;
+  if (raymarcher) raymarcher.overlay();
 }
 function bldSetSymmetry(s) {
   Builder.symmetry = s;
-  if (raymarcher) raymarcher._dirty = true;
+  if (raymarcher) raymarcher.overlay();
 }
 function bldSetMode(m) {
   Builder.mode = m;
@@ -6522,7 +6722,7 @@ function bldSetMode(m) {
   } else {
     Builder.updateStatus('Click a snap point to begin a beam.');
   }
-  if (raymarcher) raymarcher._dirty = true;
+  if (raymarcher) raymarcher.overlay();
 }
 function bldUndo() { Builder.undo(); }
 function bldRedo() { Builder.redo(); }
@@ -6541,7 +6741,7 @@ function bldNewCell() {
 function bldSetRadius(v) {
   Builder.radius = v;
   document.getElementById('bldRadiusValue').textContent = v.toFixed(3);
-  Builder.refresh();
+  Builder.refresh(true);
 }
 function bldSetTile(t) {
   var prev = Builder.tile;
@@ -6746,7 +6946,7 @@ document.addEventListener('DOMContentLoaded', function() {
   var glEl = document.getElementById('glCanvas');
   if (!glEl) { console.error('Canvas missing'); return; }
   raymarcher = new Raymarcher(glEl);
-  f13View = f13ViewInit({tool:'beam', host:document.getElementById('cw'), canvas:glEl, redraw:function(){ raymarcher._dirty = true; }});
+  f13View = f13ViewInit({tool:'beam', host:document.getElementById('cw'), canvas:glEl, redraw:function(){ raymarcher._dirty = true; }, moving:function(){ return raymarcher.drawingInt; }});
   setupClipHandleDrag();
   updateClipPills();
   if (!raymarcher.gl) {
@@ -7020,8 +7220,7 @@ html.f13w #grp-radius,html.f13w #grp-bldradius,html.f13w #grp-cell{margin:6px 0 
       tabs:'#grp-source',topology:'#grp-topology',radius:'#grp-radius',cell:'#grp-cell',tiling:'#grp-tile',
       matE:'#grp-matE',matNu:'#grp-matNu',stiffness:'#stiffSurfCv',export:'#exportBtn',
       cellname:'#bldCellName',snap:'#grp-snap',edit:'#grp-edit',bldradius:'#grp-bldradius',
-      symmetry:'#grp-symmetry',history:'#grp-history',bldtiling:'#grp-bldtile',bldexport:'#bldExportBtn',
-      quality:'#btnQMed'
+      symmetry:'#grp-symmetry',history:'#grp-history',bldtiling:'#grp-bldtile',bldexport:'#bldExportBtn'
     }
   };
   /* ============ END PER-TOOL CONFIG ==================================== */
@@ -7501,12 +7700,6 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
         what:'Exports the custom cell as JSON, LTCX (beam-lattice), or CSV.',
         see:'Same formats as the Library tab, for your built cell.',
         why:'Hand-built cells export identically to catalog cells.' }
-    ]},
-    { title:'Render', items:[
-      { id:'quality', label:'quality \u00b7 Low / Med / High / Ultra',
-        what:'Render quality of the 3D preview (top of the viewport).',
-        see:'Higher = smoother beams and caps, slower; lower = faster.',
-        why:'Preview fidelity only \u2014 it does not change geometry or export.' }
     ]}
   ];
   /* ============ END PER-TOOL CONFIG ==================================== */
@@ -7669,7 +7862,7 @@ document.addEventListener('DOMContentLoaded',function(){   // after f13ui-wire's
   // help card id → selector of its control
   const TARGETS={tabs:'#tabBuilder',topology:'#topology',radius:'#radius',cell:'#cell',tiling:'#btnTile1',matE:'#matE',matNu:'#matNu',
     stiffness:'#stiffSurfCv',export:'#exportBtn',cellname:'#bldCellName',snap:'#btnSnapCoarse',edit:'#btnModeAdd',bldradius:'#bldRadius',
-    symmetry:'#bldSymmetry',history:'#bldUndoBtn',bldtiling:'#bldTile1',bldexport:'#bldExportBtn',quality:'#btnQMed'};
+    symmetry:'#bldSymmetry',history:'#bldUndoBtn',bldtiling:'#bldTile1',bldexport:'#bldExportBtn'};
   const reduce=()=>window.matchMedia&&matchMedia('(prefers-reduced-motion:reduce)').matches;
   UI.revealControl=function(sel){
     const el=typeof sel==='string'?document.querySelector(sel):sel;if(!el)return false;
@@ -7678,7 +7871,7 @@ document.addEventListener('DOMContentLoaded',function(){   // after f13ui-wire's
     const sec=UI.sectionOf&&UI.sectionOf(el);if(sec&&UI.showSection)UI.showSection(sec);
     if(UI.isPhone&&UI.isPhone()&&UI.setSheet)UI.setSheet('full');
     if(!el.getClientRects().length)return false;
-    const row=el.closest('.sc-group')||el.closest('.viz-card')||el.closest('#qualityOverlay')||el;
+    const row=el.closest('.sc-group')||el.closest('.viz-card')||el;
     row.scrollIntoView({block:'center',behavior:reduce()?'auto':'smooth'});
     row.classList.remove('f13w-flash');void row.offsetWidth;row.classList.add('f13w-flash');
     setTimeout(()=>row.classList.remove('f13w-flash'),1400);
