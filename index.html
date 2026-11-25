@@ -194,7 +194,7 @@ body .f13h-close{width:44px;height:44px}
   #sectionsRail{display:none}
   #sheetHandle{display:flex;flex:0 0 22px;align-items:center;justify-content:center;position:relative;touch-action:none;cursor:grab;background:none;border:0;width:100%}
   #sheetHandle::before{content:'';width:36px;height:4px;border-radius:2px;background:var(--hair-strong)}
-  #sheetHandle::after{content:'';position:absolute;left:0;right:0;top:-12px;bottom:-10px}
+  #sheetHandle::after{content:'';position:absolute;left:0;right:0;top:-22px;bottom:0}   /* 44 px hit area: the 22 px bar plus 22 px above it (below it the sheet's content would cover any extension) */
   #ctrlScroll{flex:1 1 auto;padding:0 16px}
   .sec{padding:6px 0 20px}
   #sectionsBar{display:block;flex:0 0 auto;border-top:1px solid var(--hair);padding-bottom:env(safe-area-inset-bottom);background:var(--panel)}
@@ -661,8 +661,7 @@ sub,sup{font-size:11px;line-height:0}
 <!-- ==========  LIQUID-UI KIT BUNDLE (vendored, do not edit)  ============ -->
 <!-- ===================================================================== -->
 <script id="liquid-ui">
-/* liquid-ui (mshomper/liquid-ui @ c558bea, branch f13ld-wave1-kit) — core + widgets bundle. Do not edit here; edit the kit and rebuild. */
-/* liquid-ui (mshomper/liquid-ui @ dcb3106) — core + widgets bundle. Do not edit here; edit the kit and rebuild. */
+/* liquid-ui (mshomper/liquid-ui @ 3c6f581) — core + widgets bundle. Do not edit here; edit the kit and rebuild. */
 /* ============================================================================
    Liquid UI core — SDF-shaded "liquid" controls for the web.
    One shared WebGL context renders every component into its own 2D canvas.
@@ -1356,9 +1355,24 @@ float accentSDF(vec2 p){
     function attachWin() { window.addEventListener('scroll', onScroll, true); window.addEventListener('resize', onResizeWin); }
     function detachWin() { window.removeEventListener('scroll', onScroll, true); window.removeEventListener('resize', onResizeWin); }
 
+    // Close bookkeeping: a failsafe timer completes the close if the animator is starved (busy machine), and
+    // Esc / a section change (window event 'f13ui-section') dismiss even when focus is not in the widget.
+    let closeTimer = 0;
+    function finishClose() {   // snap shut: overlay hidden, springs at rest
+      clearTimeout(closeTimer); closeTimer = 0;
+      if (open || !active) return;
+      [desc, ph, pw, press, head, tail, vis].forEach(s => s.snap()); tail.set(head.x);
+      pending = null; closeAt = -1;
+      active = false; ov.style.display = 'none'; detachWin(); write();
+    }
+    const onEsc = e => { if (e.key === 'Escape' && open) setOpen(false); };
+    const onSection = () => { if (open || active) { setOpen(false); finishClose(); } };
+    document.addEventListener('keydown', onEsc, true);
+    window.addEventListener('f13ui-section', onSection);
     function setOpen(v, focusSel) {
       closeAt = -1;
       if (v === open || (v && disabled)) return;
+      clearTimeout(closeTimer); closeTimer = 0;
       open = v;
       btn.setAttribute('aria-expanded', v);
       host.classList.toggle('lq-wd-open', v); ov.classList.toggle('lq-wd-open', v);
@@ -1390,6 +1404,7 @@ float accentSDF(vec2 p){
         desc.target = 0; ph.target = 0; pw.target = W0;
         if (!Liquid.state.reduce) press.v -= 1.2;
         if (ov.contains(document.activeElement)) btn.focus({ preventScroll: true });
+        closeTimer = setTimeout(finishClose, 480);
       }
       anim.wake();
     }
@@ -1476,10 +1491,11 @@ float accentSDF(vec2 p){
         paintFace(); anim.wake();
       },
       setDisabled(b) { disabled = !!b; btn.disabled = disabled; if (disabled && open) setOpen(false); },
-      open() { setOpen(true); }, close() { setOpen(false); },
+      open() { setOpen(true); }, close(immediate) { setOpen(false); if (immediate) finishClose(); },
       redraw: write,
       destroy() {
-        destroyed = true; detachWin(); document.removeEventListener('pointerdown', outside, true);
+        destroyed = true; detachWin(); clearTimeout(closeTimer);
+        document.removeEventListener('keydown', onEsc, true); window.removeEventListener('f13ui-section', onSection); document.removeEventListener('pointerdown', outside, true);
         for (const s of [hs, os]) if (s) { s.ro.disconnect(); s.draw = () => {}; }
         ov.remove(); host.innerHTML = ''; host.classList.remove('lq-wd', 'lq-wd-open');
       }
@@ -2048,6 +2064,7 @@ Liquid.ui = Liquid.ui || {}; Liquid.uiDemo = Liquid.uiDemo || [];
   transition: opacity 160ms ease-out, filter 160ms ease-out, transform 160ms ease-out, color 160ms ease-out; }
 .lq-ws-lab{ position:absolute; left:50%; transform:translate(-50%,-50%); font-size:11px; font-weight:650; letter-spacing:.01em; white-space:nowrap;
   transition: color 160ms ease-out; }
+.lq-ws-tab.dis .lq-ws-ic, .lq-ws-tab.dis .lq-ws-lab{ opacity:.5; }   /* disabled item: dimmed, still opens */
 .lq-ws-tab.near .lq-ws-ic{ color:${INK}; }
 .lq-ws-tab.lifted .lq-ws-lab{ color:oklch(var(--al) var(--ac) var(--ah)); }
 .lq-ws.h .lq-ws-tab.lifted .lq-ws-ic{ opacity:0; filter:blur(4px); transform:translateY(-12px) scale(.7); }
@@ -2082,6 +2099,7 @@ Liquid.ui = Liquid.ui || {}; Liquid.uiDemo = Liquid.uiDemo || [];
     if (!opts.badgeAccent && Math.abs(base.h - badgeAcc.h) < 30) badgeAcc = Liquid.ACCENTS.amber;
     const idx = id => T.findIndex(t => t.id === id);
     let target = Math.max(0, idx(opts.value)), disabled = false, ready = false;
+    const dis = T.map(t => !!t.disabled);   // per-item disabled: dimmed (tab and bead), aria-disabled, but still selectable
 
     const G = horiz
       ? { M: 2, R: 22, gap: 5, barT: 24, barH: 58, corner: 22, iconOff: 21, labOff: 43, H: 84 }
@@ -2215,6 +2233,8 @@ void accentAt(vec2 p, inout vec3 A, inout vec3 AD){   // each pixel takes the co
       surf.set('uCorner', G.corner).set('uRn', G.R + G.gap).set('uR', G.R).set('uScale', sc);
       const f = Math.min(Math.max((head.x - G.cs[0]) / G.slotW, 0), N - 1), i0 = Math.floor(f), i1 = Math.min(i0 + 1, N - 1);
       surf.setAccent(Liquid.mixAccent(accOf(i0), accOf(i1), f - i0));
+      const dm = (dis[i0] ? 0.5 : 1) * (1 - (f - i0)) + (dis[i1] ? 0.5 : 1) * (f - i0);   // bead dims as it rides over a disabled item
+      surf.setAccentOpacity(dm); bead.style.opacity = dm;
       surf.draw();
       bead.style.transform = `translate(${bx}px, ${by}px) scale(${sc})`;
       const n = nearest(head.x);
@@ -2324,6 +2344,13 @@ void accentAt(vec2 p, inout vec3 A, inout vec3 AD){   // each pixel takes the co
       els[i].setAttribute('aria-label', v === 'dot' ? `${t}, new` : (typeof v === 'number' && v > 0) ? `${t}, ${v}` : t);
     }
     T.forEach((_, i) => label(i));
+    function markDis(i) { els[i].classList.toggle('dis', dis[i]); if (dis[i]) els[i].setAttribute('aria-disabled', 'true'); else els[i].removeAttribute('aria-disabled'); }
+    T.forEach((_, i) => markDis(i));
+    // setItemState(id, { disabled }): dim / restore one item. It stays focusable and selectable (the app shows a note).
+    function setItemState(id, { disabled: d } = {}) {
+      const i = idx(id); if (i < 0 || d === undefined || dis[i] === !!d) return;
+      dis[i] = !!d; markDis(i); anim.wake(); write();
+    }
 
     // setBadge(id, value, { accent }): value = number | 'dot' | null; accent (per call) defaults to the badge accent
     function setBadge(id, v, { accent } = {}) {
@@ -2360,7 +2387,7 @@ void accentAt(vec2 p, inout vec3 A, inout vec3 AD){   // each pixel takes the co
         } else select(i, false, false);
         if (!silent && opts.onChange) opts.onChange(T[i].id);
       },
-      setBadge,
+      setBadge, setItemState,
       setDisabled(b) { disabled = !!b; host.setAttribute('aria-disabled', disabled); els.forEach(el => { el.disabled = disabled; }); },
       redraw: write,
       destroy() {
@@ -2971,6 +2998,13 @@ float bodySDF(vec2 p){
     });
     const outside = e => { if (open && !host.contains(e.target) && !ov.contains(e.target)) setOpen(false); };
     document.addEventListener('pointerdown', outside, true);
+    const onSection = () => {   // section change: dismiss at once
+      if (!open && !active) return;
+      setOpen(false); pending = [];
+      s.forEach(sp => { sp.target = 0; sp.snap(); }); sc.snap();
+      active = false; ov.style.display = 'none'; detachWin(); write();
+    };
+    window.addEventListener('f13ui-section', onSection);
 
     return {
       get: () => open,
@@ -2982,9 +3016,25 @@ float bodySDF(vec2 p){
         if ('label' in st) { items[i].label = st.label; kids[i].querySelector('.lq-wsd-lab').textContent = st.label; if (active) layoutOverlay(); }
         write();
       },
-      // replace the targets in place (no destroy/recreate); an open menu closes at once
+      // replace the targets in place (no destroy/recreate). An open menu stays open and rebuilds with the new
+      // items (settled, no re-bud); one that is still closing finishes closing at once.
       setItems(list) {
-        if (open || active) {
+        if (open) {
+          const fi = kids.indexOf(document.activeElement);
+          if (os) { os.destroy(); os = null; }   // the overlay shader is sized by item count
+          buildItems(list);
+          s.forEach(sp => sp.set(1));
+          pending = [];
+          layoutOverlay();
+          if (items.length) {
+            os = new Liquid.Surface(ov, { glsl: ovGlsl(N), bleed: 32, onResize() { write(); } });
+            os.setAccent(A);
+          } else setOpen(false);
+          if (fi >= 0 && kids.length) kids[Math.min(fi, kids.length - 1)].focus({ preventScroll: true });
+          write(); anim.wake();
+          return;
+        }
+        if (active) {
           const refocus = ov.contains(document.activeElement);
           open = false; active = false; pending = [];
           main.setAttribute('aria-expanded', 'false');
@@ -3000,6 +3050,7 @@ float bodySDF(vec2 p){
       redraw: write,
       destroy() {
         destroyed = true; detachWin(); document.removeEventListener('pointerdown', outside, true);
+        window.removeEventListener('f13ui-section', onSection);
         for (const x of [hs, os]) if (x) x.destroy();
         ov.remove(); host.innerHTML = ''; host.classList.remove('lq-wsd', 'lq-wsd-open'); host.style.width = '';
       }
@@ -3073,7 +3124,7 @@ Liquid.ui = Liquid.ui || {}; Liquid.uiDemo = Liquid.uiDemo || [];
 .lq-sl-val{ position:relative; flex:none; pointer-events:auto; background:none; border:0; margin:0; padding:0 2px; border-radius:5px;
   font:inherit; font-family:${MONO}; font-size:13px; line-height:18px; font-variant-numeric:tabular-nums; color:${INK};
   cursor:text; white-space:nowrap; transition:color 140ms ease-out; }
-.lq-sl-val::before{ content:''; position:absolute; left:-14px; right:-8px; top:-4px; bottom:-22px; }
+.lq-sl-val::before{ content:''; position:absolute; right:-8px; width:max(calc(100% + 22px), 52px); top:-4px; bottom:-22px; }   /* hit area >= 44 x 44 even for 1-char values (the value sits at the host's right edge, which clips the 8 px; it grows leftwards) */
 .lq-sl-val:focus-visible{ outline:none; box-shadow:0 0 0 2px oklch(var(--al) var(--ac) var(--ah) / .45); }
 .lq-sl-unit{ margin-left:.35em; color:${DIM}; }
 .lq-sl.grab .lq-sl-num{ color:${ACC}; }
@@ -7023,6 +7074,8 @@ document.addEventListener('DOMContentLoaded', function() {
     UI.active=id;
     document.querySelectorAll('.sb-fallback [data-section]').forEach(b=>b.classList.toggle('on',b.dataset.section===id));
     if(UI.onSectionChange)try{UI.onSectionChange(id);}catch(e){console.error(e);}
+    // open dropdown / Recipe overlays are fixed-position and would outlive the section they were opened from
+    try{window.dispatchEvent(new Event('f13ui-section'));}catch(e){}
   }
   function applySections(){
     SECS.forEach(s=>secEl(s).classList.toggle('on',s===UI.active));
@@ -7144,7 +7197,12 @@ html.f13w .f13w-slider{width:100%}
 html.f13w .sl>.row-extra{margin-top:2px}
 .f13w-lab{flex:1 1 auto;min-width:0;display:flex;align-items:center;gap:6px}
 .f13w-lab>label{font-size:13px;font-weight:550;line-height:18px;color:var(--ink-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
-.lq-sl-head .f13h-i{pointer-events:auto;flex:none}
+.lq-sl-head .f13h-i{pointer-events:auto;flex:none;z-index:3}   /* z: its 44px hit box sits above the track's hit box */
+/* the help engine may append the (i) inside the <label>: a clipping label would cut its 44x44 ::after to the label box
+   (31x20 measured). overflow:clip keeps the ellipsis, and overflow-clip-margin lets the hit box reach past the label */
+.f13w-lab>label{overflow:clip;overflow-clip-margin:16px}
+.f13w-lab .f13h-i{position:relative;flex:none}
+.f13w-lab .f13h-i::after{content:'';position:absolute;inset:-14px}   /* 18 + 28 = 46 square, above the track's own hit box (z-index on the (i)) */
 /* fraction labels (⅛ ¼ …): mono faces lack the glyphs, so use the UI face for those sliders */
 .f13w-frac .lq-sl-num{font-family:var(--lq-font);font-size:15px}
 
@@ -7163,7 +7221,9 @@ html.f13w #w-clip>.clip-lbl{margin:0}
 
 /* sections */
 html.f13w #sectionsRail>.f13w-rail{margin:14px 0 0 4px}
-html.f13w .sb-fallback{display:none}
+html.f13w .sb-fallback,html.f13w #sectionsRail .sb-fallback,html.f13w #sectionsBar .sb-fallback{display:none}   /* id rules in a tool's stage-2 CSS would otherwise win */
+/* the clip overlay's native pills give way to the clip radio (the wire reuses its .clip-lbl) */
+html.f13w.f13w-clip #clipOverlay{display:none}
 html.f13w #sectionsBar{border-top:none;padding:0 8px env(safe-area-inset-bottom)}
 
 /* help: "show" jumps from a drawer card to its control */
@@ -7178,7 +7238,7 @@ html.f13w #sectionsBar{border-top:none;padding:0 8px env(safe-area-inset-bottom)
 .f13w-tg-menu{width:100%}
 html.f13w .f13v-p{padding:2px 10px 6px 12px;min-width:184px;gap:0}
 html.f13w .f13v-p .f13v-r{margin-top:4px;min-height:28px;padding:0 10px;position:relative}
-html.f13w .f13v-p .f13v-r::after{content:'';position:absolute;left:-6px;right:-6px;top:-8px;bottom:-8px}
+html.f13w .f13v-p .f13v-r::after{content:'';position:absolute;left:-6px;right:-6px;top:-8px;bottom:-12px}   /* 31 px face + 20 = 51 px hit height; the extra reach is below, where only panel padding is, so the toggle above keeps its hit area */
 
 /* ── PER-TOOL rules go here. F13LD.tpms examples: ──
 html.f13w #grp-mode{margin-bottom:20px}            margins collapse with the slider row below
@@ -7188,13 +7248,36 @@ html.f13w #termlist .sw.tog{display:none}           rebuilt rows: hide natives b
 */
 
 /* ── beam ── */
-html.f13w #sectionsRail .sb-fallback,html.f13w #sectionsBar .sb-fallback{display:none}   /* stage 2 fallback tabs → sections widget */
+/* no WebGL: native Recipe menu (f13ui-beam) with the widget's items; the old header buttons give way to it, the queue client's stay mounted but invisible */
+html.f13nm #w-recipe{display:block;position:relative;flex:none}
+html.f13nm .fh-mesh-btn,html.f13nm #f13ldq-fallback{display:none}
+html.f13nm .fh-right>.f13ldq-split,html.f13nm .fh-right>.f13ldq-main{position:absolute;right:14px;top:calc(env(safe-area-inset-top) + 8px);pointer-events:none;z-index:-1}
+html.f13nm .fh-right>.f13ldq-split>.f13ldq-main,html.f13nm .fh-right>.f13ldq-split>.f13ldq-caret,html.f13nm .fh-right>.f13ldq-main{opacity:0}
+html.f13nm .fh-right>.f13ldq-split>:not(.f13ldq-main):not(.f13ldq-caret){pointer-events:auto}
+html.f13nm .nm-btn{position:relative;display:inline-flex;align-items:center;height:32px;padding:0 14px;border:1px solid var(--hair-strong);border-radius:999px;background:var(--card);color:var(--ink);font:600 13px var(--lq-font);cursor:pointer}
+html.f13nm .nm-btn::after{content:'';position:absolute;left:50%;top:50%;width:max(100%,44px);height:44px;transform:translate(-50%,-50%)}
+html.f13nm .nm-btn:hover,html.f13nm .nm-btn[aria-expanded=true]{border-color:var(--accent-line);color:var(--accent)}
+html.f13nm .nm-menu{position:absolute;right:0;top:calc(100% + 8px);z-index:70;min-width:200px;padding:4px;background:var(--panel);border:1px solid var(--hair-strong);border-radius:12px;box-shadow:0 12px 32px oklch(0 0 0 / .35)}
+html.f13nm .nm-menu[hidden]{display:none}
+html.f13nm .nm-item{display:block;width:100%;min-height:44px;padding:0 14px;text-align:left;background:none;border:0;border-radius:8px;color:var(--ink);font:500 13px var(--lq-font);cursor:pointer}
+html.f13nm .nm-item:hover,html.f13nm .nm-item:focus-visible{background:var(--accent-soft)}
+html.f13nm .nm-item:disabled{color:var(--ink-faint);cursor:default}
+@media (max-width:560px){
+  html.f13nm .f13ld-header{flex-wrap:nowrap;padding:0 10px;padding-top:env(safe-area-inset-top);column-gap:8px}
+  html.f13nm .f13ld-header::after{display:none}
+  html.f13nm .fh-left{gap:8px;flex:none}
+  html.f13nm .fh-right{display:flex;gap:6px}
+}
+@media (max-width:380px){
+  html.f13nm .f13ld-header{column-gap:4px;padding-left:8px;padding-right:8px}
+  html.f13nm .fh-divider{display:none}
+  html.f13nm .fh-left{gap:6px}
+  html.f13nm .fh-right{gap:3px}
+}
 html.f13w #w-source,html.f13w #w-tile,html.f13w #w-bldtile,html.f13w #w-snap,html.f13w #w-edit,html.f13w #w-topology,html.f13w #w-sym{width:100%}
 html.f13w #grp-radius,html.f13w #grp-bldradius,html.f13w #grp-cell{margin:6px 0 10px}
 </style>
 <script id="f13ui-wire">
-/* f13ui-wire: run once the app has built the view menu (its DOMContentLoaded handler is registered earlier) */
-(function(){function run(){
 /* ============================================================================
    F13LD UI template · f13ui-wire.js — mounts liquid widgets over a tool's native controls.
    Generalised from F13LD.tpms v1.4.0 (its #f13ui-wire is the tested reference).
@@ -7208,12 +7291,17 @@ html.f13w #grp-radius,html.f13w #grp-bldradius,html.f13w #grp-cell{margin:6px 0 
    Only the CONFIG block changes per tool. Requires: liquid-ui bundle, layout.js (window.F13UI).
    No WebGL → nothing mounts, html.f13w is never set, the native controls remain.
    ========================================================================== */
-(function(){
+(function F13Wire(){
   'use strict';
+  /* Init timing: wait for the DOM (and one task after DOMContentLoaded, so handlers the app registered
+     later have run). Tools no longer reorder their code; a view menu built later still gets mounted below. */
+  if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',()=>setTimeout(F13Wire,0),{once:true});return;}
   if(typeof Liquid==='undefined'||!Liquid.ok||!Liquid.ui)return;
+  if(window.F13UI&&window.F13UI.w&&window.F13UI.w.__wired)return;
   const $=id=>document.getElementById(id);
   const UI=window.F13UI=window.F13UI||{};
   const W=UI.w={};                                                   // mounted widgets (scripts/tests)
+  Object.defineProperty(W,'__wired',{value:true});
 
   /* ============ PER-TOOL CONFIG ======================================== */
   const CONFIG={
@@ -7255,10 +7343,19 @@ html.f13w #grp-radius,html.f13w #grp-bldradius,html.f13w #grp-cell{margin:6px 0 
       natives:['exportBtn','exportLtcxBtn','exportCsvBtn','bldExportBtn','bldExportLtcxBtn','bldExportCsvBtn'],
       mesh:()=>openInMesh(),lab:()=>openInLab()},
     helpTargets:{
-      tabs:'#grp-source',topology:'#grp-topology',radius:'#grp-radius',cell:'#grp-cell',tiling:'#grp-tile',
-      matE:'#grp-matE',matNu:'#grp-matNu',stiffness:'#stiffSurfCv',export:'#w-recipe',
-      cellname:'#bldCellName',snap:'#grp-snap',edit:'#grp-edit',bldradius:'#grp-bldradius',
-      symmetry:'#grp-symmetry',history:'#grp-history',bldtiling:'#grp-bldtile',bldexport:'#w-recipe'
+      // {sel, note}: a control in the other source's block is hidden, so "show" says its note instead of flashing the section
+      tabs:'#grp-source',matE:'#grp-matE',matNu:'#grp-matNu',stiffness:'#stiffSurfCv, #bldStiffSurfCv',export:'#w-recipe',bldexport:'#w-recipe',
+      topology:{sel:'#grp-topology',note:'Library only. Choose Library as the cell source to see it.'},
+      radius:{sel:'#grp-radius',note:'Library only. Choose Library as the cell source to see it.'},
+      cell:{sel:'#grp-cell',note:'Library only. Choose Library as the cell source to see it.'},
+      tiling:{sel:'#grp-tile',note:'Library only. Choose Library as the cell source to see it.'},
+      cellname:{sel:'#bldCellName',note:'Builder only. Choose Builder as the cell source to see it.'},
+      snap:{sel:'#grp-snap',note:'Builder only. Choose Builder as the cell source to see it.'},
+      edit:{sel:'#grp-edit',note:'Builder only. Choose Builder as the cell source to see it.'},
+      bldradius:{sel:'#grp-bldradius',note:'Builder only. Choose Builder as the cell source to see it.'},
+      symmetry:{sel:'#grp-symmetry',note:'Builder only. Choose Builder as the cell source to see it.'},
+      history:{sel:'#grp-history',note:'Builder only. Choose Builder as the cell source to see it.'},
+      bldtiling:{sel:'#grp-bldtile',note:'Builder only. Choose Builder as the cell source to see it.'}
     }
   };
   /* ============ END PER-TOOL CONFIG ==================================== */
@@ -7308,7 +7405,11 @@ html.f13w #grp-radius,html.f13w #grp-bldradius,html.f13w #grp-cell{margin:6px 0 
     quiet=mirrorValue(inp,HTMLInputElement.prototype,v=>w.set(+v));
     if(lab){                                                         // the row's own <label> becomes the widget label (help "i" stays beside it)
       const ks=host.querySelector('.lq-sl-label'),wrap=document.createElement('span');
-      wrap.className='f13w-lab';lab.id=ks.id;ks.removeAttribute('id');lab.removeAttribute('for');
+      wrap.className='f13w-lab';
+      if(lab.id){                                                    // the app / help engine address the label by id: keep it, point the widget's aria-labelledby at it
+        host.querySelectorAll('[aria-labelledby~="'+ks.id+'"]').forEach(e=>e.setAttribute('aria-labelledby',e.getAttribute('aria-labelledby').split(/\s+/).map(t=>t===ks.id?lab.id:t).join(' ')));
+      }else lab.id=ks.id;
+      ks.removeAttribute('id');lab.removeAttribute('for');
       wrap.appendChild(lab);ks.replaceWith(wrap);
     }
     if(hintEl)watch(hintEl,()=>w.setHint(hintOf()));
@@ -7379,14 +7480,27 @@ html.f13w #grp-radius,html.f13w #grp-bldradius,html.f13w #grp-cell{margin:6px 0 
     W[s.id||s.btn]=w;
   });
   // shared view menu: checkbox rows → label-first toggles; its reset sets .checked silently, so resync after it
-  const vp=CONFIG.viewMenu&&document.querySelector('#cw .f13v-p');
-  W.view=vp?[...vp.querySelectorAll('input[type=checkbox]')].map(cb=>{
-    const row=cb.closest('label')||cb,host=tgHost('f13w-tg-menu');
-    row.before(host);row.setAttribute('data-native','toggle');
-    return {cb,w:Liquid.ui.toggle(host,{...TG,checked:cb.checked,label:row.textContent.trim(),labelFirst:true,
-      onChange:v=>{cb.checked=v;fire(cb,'change');}})};
-  }):[];
-  if(vp){const r=vp.querySelector('.f13v-r');if(r)r.addEventListener('click',()=>W.view.forEach(({cb,w})=>w.set(cb.checked)));}
+  W.view=[];
+  function mountView(){                                              // true once the menu exists and is mounted
+    const vp=document.querySelector('#cw .f13v-p');if(!vp)return false;
+    const cbs=[...vp.querySelectorAll('input[type=checkbox]')].filter(cb=>!cb.closest('[data-native]'));if(!cbs.length)return false;
+    cbs.forEach(cb=>{
+      const row=cb.closest('label')||cb,host=tgHost('f13w-tg-menu');
+      row.before(host);row.setAttribute('data-native','toggle');
+      W.view.push({cb,w:Liquid.ui.toggle(host,{...TG,checked:cb.checked,label:row.textContent.trim(),labelFirst:true,
+        onChange:v=>{cb.checked=v;fire(cb,'change');}})});
+    });
+    const r=vp.querySelector('.f13v-r');if(r)r.addEventListener('click',()=>W.view.forEach(({cb,w})=>w.set(cb.checked)));
+    return true;
+  }
+  if(CONFIG.viewMenu&&!mountView()){                                 // the menu may be built after us (the shared script, or the app's own handler): watch briefly
+    const mo=new MutationObserver(()=>{if(mountView())stop();});
+    const stop=()=>{mo.disconnect();clearTimeout(tm);window.removeEventListener('load',onLoad);};
+    const onLoad=()=>{if(mountView())stop();};
+    const tm=setTimeout(stop,5000);
+    mo.observe(document.documentElement,{childList:true,subtree:true});
+    window.addEventListener('load',onLoad);
+  }
 
   // ---- run → progress button (synchronous solvers: busy slosh, then flood when results land) ----
   let running=false;
@@ -7406,7 +7520,9 @@ html.f13w #grp-radius,html.f13w #grp-bldradius,html.f13w #grp-cell{margin:6px 0 
   // ---- clip radio (axis accents; tap the active axis to release) ----
   if(CONFIG.clip&&$(CONFIG.clip.host)){
     const c=CONFIG.clip,host=$(c.host);
-    host.innerHTML='<span class="clip-lbl">clip</span><div></div>';
+    const lbl=host.querySelector('.clip-lbl')||document.querySelector('#clipOverlay .clip-lbl')||Object.assign(document.createElement('span'),{className:'clip-lbl',textContent:'clip'});
+    host.textContent='';host.append(lbl,document.createElement('div'));   // an existing label (and its styling) is reused
+    document.documentElement.classList.add('f13w-clip');                  // hides the native #clipOverlay pills
     const AX=['x','y','z'];
     W.clip=Liquid.ui.radio(host.lastChild,{options:AX.map((a,i)=>({value:i+1,label:a.toUpperCase(),accent:Liquid.ACCENTS['axis'+a.toUpperCase()]})),
       value:c.get()||null,allowNone:true,orientation:'horizontal',size:'sm',ariaLabel:'Clip plane',
@@ -7467,11 +7583,17 @@ html.f13w #grp-radius,html.f13w #grp-bldradius,html.f13w #grp-cell{margin:6px 0 
 
   // ---- sections: rail (desktop) + tab bar (phone), results badge ----
   function mk(parent,cls){const d=document.createElement('div');d.className=cls;parent.appendChild(d);return d;}
+  CONFIG.sections.forEach(s=>{                                       // a section icon not in Liquid.ICONS: reuse the fallback tab's drawn svg
+    const svg=document.querySelector('.sb-fallback [data-section="'+s.id+'"] svg,#sectionsBar [data-section="'+s.id+'"] svg');
+    if(svg&&!Liquid.ICONS[s.icon])Liquid.ICONS[s.icon]=svg.innerHTML;
+  });
   W.rail=Liquid.ui.sections(mk($('sectionsRail'),'f13w-rail'),{items:CONFIG.sections,value:UI.active,orientation:'vertical',
     accent:ACC,ariaLabel:'Sections',onChange:id=>UI.showSection(id)});
   W.bar=Liquid.ui.sections(mk($('sectionsBar'),'f13w-bar'),{items:CONFIG.sections,value:UI.active,orientation:'horizontal',
     accent:ACC,ariaLabel:'Sections',onChange:id=>UI.showSection(id)});
-  let badge=null;                                                    // 'running' | 'new' | 'stale' | null
+  // per-section disabled: dimmed, still opens (the section shows its own note). CONFIG.sections[i].disabled for the initial state.
+  UI.setSectionDisabled=(id,on)=>{W.rail.setItemState(id,{disabled:!!on});W.bar.setItemState(id,{disabled:!!on});};
+  let badge=null;                                                   // 'running' | 'new' | 'stale' | null
   const A=CONFIG.analyzeSection;
   function setBadge(b){if(!A)return;badge=b;const v=b?'dot':null,o={accent:b==='stale'?'amber':'coral'};W.rail.setBadge(A,v,o);W.bar.setBadge(A,v,o);}
   const seen=()=>UI.active===A;
@@ -7483,58 +7605,122 @@ html.f13w #grp-radius,html.f13w #grp-bldradius,html.f13w #grp-cell{margin:6px 0 
   });
 
   // ---- help: each drawer card whose control lives in a section gets a "show" button ----
-  UI.revealControl=function(sel){
-    const el=typeof sel==='string'?document.querySelector(sel):sel;if(!el)return false;
+  // Targets: CONFIG.helpTargets and a tool's own F13UI.helpTargets (read at call time, wins): id → selector,
+  // "a, b" (first drawn candidate), or {sel, note}. `note` is what a hidden control says ("Helicoid only").
+  // revealControl(sel, id) COMPOSES with a revealControl a tool defined earlier: visible controls land on their
+  // row / widget here; a control hidden by the current mode (its row not drawn) goes to the earlier function
+  // (its own message path), else says its note (default text below). It never flashes a whole section.
+  const prevReveal=typeof UI.revealControl==='function'&&!UI.revealControl.f13wire?UI.revealControl:null;
+  const targets=()=>Object.assign({},CONFIG.helpTargets,UI.helpTargets);
+  const vis=n=>!!(n&&n.getClientRects().length);
+  function resolveEl(sel){
+    if(sel&&typeof sel==='object'&&!sel.nodeType)sel=sel.sel;
+    if(typeof sel!=='string')return sel||null;
+    const cs=sel.split(',').map(s=>document.querySelector(s.trim())).filter(Boolean);
+    return cs.find(vis)||cs[0]||null;
+  }
+  UI.revealControl=function(sel,id){
+    const spec=sel==null&&id!=null?targets()[id]:sel;
+    const el=resolveEl(spec);if(!el)return false;
     const sec=UI.sectionOf(el);if(sec)UI.showSection(sec);
     if(UI.isPhone()&&UI.setSheet)UI.setSheet('full');
-    if(!el.getClientRects().length)return false;
-    const row=el.closest('.sc-group')||el;
+    // natives are hidden ([data-native]): land on the visible row, else the widget mounted beside the native,
+    // else (the native alone is hidden) its parent. A row hidden by the current mode lands nowhere.
+    let row=el.closest('.sc-group')||el;
+    if(!vis(row)){
+      let top=el;while(top.parentElement&&!vis(top.parentElement))top=top.parentElement;
+      const sib=top===el&&[el.nextElementSibling,el.previousElementSibling].find(n=>n&&/(^|\s)f13w-/.test(n.className)&&vis(n));
+      const par=top===el?el.parentElement:null;
+      row=sib||(par&&!par.matches('.sec,#ctrlScroll,#ctrlPane,#main,body,html')?par:null);
+    }
+    if(!row){
+      if(prevReveal){try{return prevReveal.call(UI,(spec&&spec.sel)||spec,id);}catch(e){console.error(e);}}
+      const t=id!=null?targets()[id]:null,note=(t&&typeof t==='object'&&t.note)||(sel&&typeof sel==='object'&&sel.note);
+      say(note||'This control is hidden in the current mode.');
+      return false;
+    }
     row.scrollIntoView({block:'center',behavior:Liquid.state.reduce?'auto':'smooth'});
     row.classList.remove('f13w-flash');void row.offsetWidth;row.classList.add('f13w-flash');
     setTimeout(()=>row.classList.remove('f13w-flash'),1400);
     return true;
   };
+  UI.revealControl.f13wire=true;
   const SHOW_ICON='<svg class="ic sm" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.8v2.4M8 11.8v2.4M1.8 8h2.4M11.8 8h2.4"/></svg>';
   function addShowButtons(){
-    Object.keys(CONFIG.helpTargets).forEach(id=>{
+    Object.keys(targets()).forEach(id=>{
       const h=document.querySelector('#f13h-card-'+id+' .f13h-card-h');if(!h||h.querySelector('.f13w-show'))return;
       const b=document.createElement('button');b.type='button';b.className='f13w-show';b.innerHTML=SHOW_ICON+'<span>show</span>';
       b.setAttribute('aria-label','Show this control');
-      b.addEventListener('click',e=>{e.stopPropagation();const s=document.querySelector('.f13h-scrim.open');if(s)s.click();UI.revealControl(CONFIG.helpTargets[id]);});
+      b.addEventListener('click',e=>{e.stopPropagation();const s=document.querySelector('.f13h-scrim.open');if(s)s.click();UI.revealControl(targets()[id],id);});
       h.appendChild(b);
     });
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(addShowButtons,0));else setTimeout(addShowButtons,0);
+  window.addEventListener('load',addShowButtons);                    // a tool setting F13UI.helpTargets / the help block later
 })();
-}
-if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",run);else run();})();
 </script>
 <script id="f13ui-beam">
-/* f13ui-beam: run once the app has built the view menu (its DOMContentLoaded handler is registered earlier) */
-(function(){function run(){
-/* beam-only widget glue (the template wire stays generic). Idle without widgets. */
+/* beam-only glue (the template wire stays generic). No ordering with the wire needed: both parts check the page, not the wire. */
 (function(){
   'use strict';
-  const UI=window.F13UI;
-  if(!UI||!UI.w)return;
-  // help "show": controls in the other Library / Builder block switch the source first
-  const baseReveal=UI.revealControl;
-  UI.revealControl=function(sel){
-    const el=typeof sel==='string'?document.querySelector(sel):sel;
-    const md=el&&el.closest('[data-mode]');
-    if(md&&md.dataset.mode!==document.documentElement.dataset.mode&&typeof switchTab==='function')switchTab(md.dataset.mode);
-    return baseReveal.call(this,sel);
-  };
-  // phone: drawing taps snap points in the viewer, so Draw keeps the sheet at peek height (viewer above it, uncovered)
+  const html=document.documentElement;
+  // phone: drawing taps snap points in the viewer, so Draw keeps the sheet at peek height (viewer above it, uncovered).
+  // Widgets only (html.f13w); runs on the layout's section event and on a Library / Builder switch.
   function drawPeek(){
-    if(UI.isPhone()&&UI.active==='draw'&&document.documentElement.dataset.mode==='builder'&&UI.setSheet)UI.setSheet('peek');
+    const UI=window.F13UI;
+    if(UI&&html.classList.contains('f13w')&&UI.isPhone()&&UI.active==='draw'&&html.dataset.mode==='builder'&&UI.setSheet)UI.setSheet('peek');
   }
-  const prev=UI.onSectionChange;
-  UI.onSectionChange=function(id){if(prev)prev.apply(this,arguments);if(id==='draw')drawPeek();};
-  new MutationObserver(drawPeek).observe(document.documentElement,{attributes:true,attributeFilter:['data-mode']});
+  window.addEventListener('f13ui-section',drawPeek);
+  new MutationObserver(drawPeek).observe(html,{attributes:true,attributeFilter:['data-mode']});
+
+  // No WebGL: the Recipe widget cannot mount (it is a WebGL surface), so a native menu offers the same items:
+  // Open recipe…, Export JSON, Export LTCX, Export CSV, Queue, Choose queue…, Mesh, Lab. The old header buttons give way to it.
+  if(typeof Liquid!=='undefined'&&Liquid.ok&&Liquid.ui)return;
+  function nativeRecipe(){
+    const host=document.getElementById('w-recipe');if(!host||host.firstChild)return;
+    const $=id=>document.getElementById(id);
+    const qMain=()=>document.querySelector('.fh-right .f13ldq-main'),qCaret=()=>document.querySelector('.fh-right .f13ldq-caret');
+    const say=t=>setTimeout(()=>{if(window.F13UI&&F13UI.message)F13UI.message(t);},0);
+    const nat=(a,b)=>{const n=$(currentTab==='builder'?b:a);if(n)n.click();};
+    function items(){
+      const real=!!qMain(),offline=!real&&!!$('f13ldq-fallback'),it=[];
+      if(window.F13Recipe)it.push({label:'Open recipe…',run:()=>F13Recipe.open()});
+      it.push({label:'Export JSON',run:()=>nat('exportBtn','bldExportBtn')});
+      it.push({label:'Export LTCX',run:()=>nat('exportLtcxBtn','bldExportLtcxBtn')});
+      it.push({label:'Export CSV',run:()=>nat('exportCsvBtn','bldExportCsvBtn')});
+      it.push({label:offline?'Queue (offline)':'Queue',disabled:offline,run:()=>{const m=qMain();if(m)m.click();else say('Queue is still loading — try again in a moment.');}});
+      if(real&&qCaret())it.push({label:'Choose queue…',run:()=>qCaret().click()});
+      it.push({label:'Mesh',run:()=>openInMesh()});
+      it.push({label:'Lab',run:()=>openInLab()});
+      return it;
+    }
+    const btn=document.createElement('button');btn.type='button';btn.className='nm-btn';btn.textContent='Recipe';
+    btn.setAttribute('aria-haspopup','menu');btn.setAttribute('aria-expanded','false');
+    const menu=document.createElement('div');menu.className='nm-menu';menu.setAttribute('role','menu');menu.setAttribute('aria-label','Recipe');menu.hidden=true;
+    host.append(btn,menu);html.classList.add('f13nm');
+    function close(refocus){if(menu.hidden)return;menu.hidden=true;btn.setAttribute('aria-expanded','false');if(refocus)btn.focus();}
+    function open(){
+      menu.textContent='';
+      items().forEach(x=>{
+        const b=document.createElement('button');b.type='button';b.className='nm-item';b.setAttribute('role','menuitem');b.textContent=x.label;b.disabled=!!x.disabled;
+        b.addEventListener('click',()=>{close(true);x.run();});menu.appendChild(b);
+      });
+      menu.hidden=false;btn.setAttribute('aria-expanded','true');
+      const f=menu.querySelector('.nm-item:not(:disabled)');if(f)f.focus();
+    }
+    btn.addEventListener('click',()=>menu.hidden?open():close(false));
+    menu.addEventListener('keydown',e=>{
+      const els=[...menu.querySelectorAll('.nm-item:not(:disabled)')],i=els.indexOf(document.activeElement);
+      if(e.key==='Escape'){close(true);e.preventDefault();}
+      else if(e.key==='ArrowDown'){els[(i+1)%els.length].focus();e.preventDefault();}
+      else if(e.key==='ArrowUp'){els[(i-1+els.length)%els.length].focus();e.preventDefault();}
+      else if(e.key==='Tab')close(false);
+    });
+    document.addEventListener('pointerdown',e=>{if(!menu.hidden&&!host.contains(e.target))close(false);},true);
+    window.addEventListener('f13ui-section',()=>close(false));
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',nativeRecipe,{once:true});else nativeRecipe();
 })();
-}
-if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",run);else run();})();
 </script>
 
 <!-- ===================================================================== -->
@@ -8150,9 +8336,9 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
 
 <!-- Help "show" for the no-WebGL case (native controls): with widgets, f13ui-wire adds the buttons and this block stays idle -->
 <script id="f13ui-help-show">
-document.addEventListener('DOMContentLoaded',function(){   // after f13ui-wire's own listener, so UI.w is known
+document.addEventListener('DOMContentLoaded',function(){
   const UI=window.F13UI=window.F13UI||{};
-  if(UI.w)return;
+  if(typeof Liquid!=='undefined'&&Liquid.ok&&Liquid.ui)return;   // the wire mounts exactly then (it runs a task after DOMContentLoaded, so UI.w is not known yet)
   // help card id → selector of its control
   const TARGETS={tabs:'#tabBuilder',topology:'#topology',radius:'#radius',cell:'#cell',tiling:'#btnTile1',matE:'#matE',matNu:'#matNu',
     stiffness:'#stiffSurfCv',export:'#exportBtn',cellname:'#bldCellName',snap:'#btnSnapCoarse',edit:'#btnModeAdd',bldradius:'#bldRadius',
